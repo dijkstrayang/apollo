@@ -43,6 +43,7 @@ import com.google.gson.Gson;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
+ * 实现 AbstractConfigRepository 抽象类，远程配置 Repository 。实现从 Config Service 拉取配置，并缓存在内存中。并且，定时 + 实时刷新缓存
  */
 public class RemoteConfigRepository extends AbstractConfigRepository {
   private static final Logger logger = LoggerFactory.getLogger(RemoteConfigRepository.class);
@@ -54,18 +55,49 @@ public class RemoteConfigRepository extends AbstractConfigRepository {
   private final ConfigServiceLocator m_serviceLocator;
   private final HttpUtil m_httpUtil;
   private final ConfigUtil m_configUtil;
+  /**
+   * 远程配置长轮询服务
+   */
   private final RemoteConfigLongPollService remoteConfigLongPollService;
+  /**
+   * 指向 ApolloConfig 的 AtomicReference ，缓存配置
+   */
   private volatile AtomicReference<ApolloConfig> m_configCache;
+  /**
+   * Namespace 名字
+   */
   private final String m_namespace;
+  /**
+   * ScheduledExecutorService 对象
+   */
   private final static ScheduledExecutorService m_executorService;
+  /**
+   * 指向 ServiceDTO( Config Service 信息) 的 AtomicReference
+   */
   private final AtomicReference<ServiceDTO> m_longPollServiceDto;
+  /**
+   * 指向 ApolloNotificationMessages 的 AtomicReference
+   */
   private final AtomicReference<ApolloNotificationMessages> m_remoteMessages;
+  /**
+   * 加载配置的 RateLimiter
+   */
   private final RateLimiter m_loadConfigRateLimiter;
+  /**
+   * 是否强制拉取缓存的标记
+   *
+   * 若为 true ，则多一轮从 Config Service 拉取配置
+   * 为 true 的原因，RemoteConfigRepository 知道 Config Service 有配置刷新
+   */
   private final AtomicBoolean m_configNeedForceRefresh;
+  /**
+   * 失败定时重试策略，使用 {@link ExponentialSchedulePolicy}
+   */
   private final SchedulePolicy m_loadConfigFailSchedulePolicy;
   private final Gson gson;
 
   static {
+    // 单线程池
     m_executorService = Executors.newScheduledThreadPool(1,
         ApolloThreadFactory.create("RemoteConfigRepository", true));
   }
@@ -89,8 +121,11 @@ public class RemoteConfigRepository extends AbstractConfigRepository {
     m_loadConfigFailSchedulePolicy = new ExponentialSchedulePolicy(m_configUtil.getOnErrorRetryInterval(),
         m_configUtil.getOnErrorRetryInterval() * 8);
     gson = new Gson();
+    // 尝试同步配置
     this.trySync();
+    // 初始化定时刷新配置的任务
     this.schedulePeriodicRefresh();
+    // 注册自己到 RemoteConfigLongPollService 中，实现配置更新的实时通知
     this.scheduleLongPollingRefresh();
   }
 
