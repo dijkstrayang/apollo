@@ -39,12 +39,24 @@ import java.util.concurrent.atomic.AtomicLong;
 public abstract class AbstractConfig implements Config {
   private static final Logger logger = LoggerFactory.getLogger(AbstractConfig.class);
 
+  /**
+   * ExecutorService 对象，用于配置变化时，异步通知 ConfigChangeListener 监听器们
+   *
+   * 静态属性，所有 Config 共享该线程池。
+   */
   private static final ExecutorService m_executorService;
-
+  /**
+   * ConfigChangeListener 集合
+   */
   private final List<ConfigChangeListener> m_listeners = Lists.newCopyOnWriteArrayList();
   private final Map<ConfigChangeListener, Set<String>> m_interestedKeys = Maps.newConcurrentMap();
   private final Map<ConfigChangeListener, Set<String>> m_interestedKeyPrefixes = Maps.newConcurrentMap();
+
   private final ConfigUtil m_configUtil;
+
+  /**
+   * 各种类型的缓存
+   */
   private volatile Cache<String, Integer> m_integerCache;
   private volatile Cache<String, Long> m_longCache;
   private volatile Cache<String, Short> m_shortCache;
@@ -54,8 +66,20 @@ public abstract class AbstractConfig implements Config {
   private volatile Cache<String, Boolean> m_booleanCache;
   private volatile Cache<String, Date> m_dateCache;
   private volatile Cache<String, Long> m_durationCache;
+  /**
+   * 数组属性 Cache Map
+   *
+   * KEY：分隔符
+   * KEY2：属性建
+   */
   private final Map<String, Cache<String, String[]>> m_arrayCache;
+  /**
+   * 上述 Cache 对象集合
+   */
   private final List<Cache> allCaches;
+  /**
+   * 缓存版本号，用于解决更新缓存可能存在的并发问题。详细见 {@link #getValueAndStoreToCache(String, Function, Cache, Object)} 方法
+   */
   private final AtomicLong m_configVersion; //indicate config version
 
   static {
@@ -70,6 +94,10 @@ public abstract class AbstractConfig implements Config {
     allCaches = Lists.newArrayList();
   }
 
+  /**
+   * 添加配置变更监听器
+   * @param listener the config change listener
+   */
   @Override
   public void addChangeListener(ConfigChangeListener listener) {
     addChangeListener(listener, null);
@@ -382,32 +410,38 @@ public abstract class AbstractConfig implements Config {
   }
 
   private <T> T getValueFromCache(String key, Function<String, T> parser, Cache<String, T> cache, T defaultValue) {
+    // 获得属性值
     T result = cache.getIfPresent(key);
-
+    // 若存在，则返回
     if (result != null) {
       return result;
     }
-
+    // 获得值，并更新到缓存
     return getValueAndStoreToCache(key, parser, cache, defaultValue);
   }
 
   private <T> T getValueAndStoreToCache(String key, Function<String, T> parser, Cache<String, T> cache, T defaultValue) {
+    // 获得当前版本号
     long currentConfigVersion = m_configVersion.get();
+    // 获得属性值
     String value = getProperty(key, null);
-
+    // 若获得到属性，返回该属性值
     if (value != null) {
+      // 解析属性值
       T result = parser.apply(value);
-
+      // 若解析成功
       if (result != null) {
+        // 若版本号未变化，则更新到缓存，从而解决并发的问题。
         synchronized (this) {
           if (m_configVersion.get() == currentConfigVersion) {
             cache.put(key, result);
           }
         }
+        // 返回属性值
         return result;
       }
     }
-
+    // 获得不到属性值，返回默认值
     return defaultValue;
   }
 
@@ -434,18 +468,25 @@ public abstract class AbstractConfig implements Config {
     }
   }
 
+  /**
+   * 触发配置监听器
+   * @param changeEvent
+   */
   protected void fireConfigChange(final ConfigChangeEvent changeEvent) {
+    // 缓存 ConfigChangeListener 数组
     for (final ConfigChangeListener listener : m_listeners) {
       // check whether the listener is interested in this change event
       if (!isConfigChangeListenerInterested(listener, changeEvent)) {
         continue;
       }
+      //提交到线程池中，异步并发通知监听器们，从而避免有些监听器执行时间过长。
       m_executorService.submit(new Runnable() {
         @Override
         public void run() {
           String listenerName = listener.getClass().getName();
           Transaction transaction = Tracer.newTransaction("Apollo.ConfigChangeListener", listenerName);
           try {
+            // 通知监听器
             listener.onChange(changeEvent);
             transaction.setStatus(Transaction.SUCCESS);
           } catch (Throwable ex) {
@@ -490,6 +531,13 @@ public abstract class AbstractConfig implements Config {
     return false;
   }
 
+  /**
+   * 计算配置变更集合
+   * @param namespace
+   * @param previous
+   * @param current
+   * @return
+   */
   List<ConfigChange> calcPropertyChanges(String namespace, Properties previous,
                                          Properties current) {
     if (previous == null) {
@@ -502,23 +550,25 @@ public abstract class AbstractConfig implements Config {
 
     Set<String> previousKeys = previous.stringPropertyNames();
     Set<String> currentKeys = current.stringPropertyNames();
-
+    // 交集
     Set<String> commonKeys = Sets.intersection(previousKeys, currentKeys);
+    // 新集合 - 交集 = 新增
     Set<String> newKeys = Sets.difference(currentKeys, commonKeys);
+    // 老集合 - 交集 = 移除
     Set<String> removedKeys = Sets.difference(previousKeys, commonKeys);
 
     List<ConfigChange> changes = Lists.newArrayList();
-
+    // 计算新增的
     for (String newKey : newKeys) {
       changes.add(new ConfigChange(namespace, newKey, null, current.getProperty(newKey),
           PropertyChangeType.ADDED));
     }
-
+    // 计算移除的
     for (String removedKey : removedKeys) {
       changes.add(new ConfigChange(namespace, removedKey, previous.getProperty(removedKey), null,
           PropertyChangeType.DELETED));
     }
-
+    // 计算修改的
     for (String commonKey : commonKeys) {
       String previousValue = previous.getProperty(commonKey);
       String currentValue = current.getProperty(commonKey);
