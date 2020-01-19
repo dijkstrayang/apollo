@@ -114,14 +114,17 @@ public class ReleaseController {
     }
     Release release = releaseService.publish(namespace, releaseName, releaseComment, operator, isEmergencyPublish);
 
-    //send release message
+    //send release message  获得 Cluster 名
     Namespace parentNamespace = namespaceService.findParentNamespace(namespace);
     String messageCluster;
+    // 有父 Namespace ，说明是灰度发布，使用父 Namespace 的集群名
     if (parentNamespace != null) {
       messageCluster = parentNamespace.getClusterName();
     } else {
+      // 使用请求的 ClusterName
       messageCluster = clusterName;
     }
+    // 发送 Release 消息
     messageSender.sendMessage(ReleaseMessageKeyGenerator.generate(appId, messageCluster, namespaceName),
                               Topics.APOLLO_RELEASE_TOPIC);
     return BeanUtils.transform(ReleaseDTO.class, release);

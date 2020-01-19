@@ -2,7 +2,15 @@ package com.ctrip.framework.apollo.biz.message;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
+ * Message 发送者接口
  */
-public interface MessageSender {
-  void sendMessage(String message, String channel);
+public interface MessageSender
+{
+	/**
+	 * 发送 Message
+	 *
+	 * @param message 消息
+	 * @param channel 通道（主题）
+	 */
+	void sendMessage(String message, String channel);
 }
