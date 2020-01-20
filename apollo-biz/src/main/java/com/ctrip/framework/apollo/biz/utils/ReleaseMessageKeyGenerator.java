@@ -18,7 +18,7 @@ public class ReleaseMessageKeyGenerator
 	 * 而 Apollo 确实是通过这样的方式实现，Client 通过不断使用获得到 ReleaseMessage 的 id 属性作为版本号，请求 Config Service 判断是否配置发生了变化
 	 *
 	 *
-	 * 正因为，ReleaseMessage 设计的意图是作为配置发生变化的通知，所以对于同一个 Namespace ，仅需要保留其最新的 ReleaseMessage 记录即可。
+	 * ReleaseMessage这样设计的意图是作为配置发生变化的通知，对于同一个 Namespace ，仅需要保留其最新的 ReleaseMessage 记录即可。
 	 * 所以，在 {@link com.ctrip.framework.apollo.biz.message.DatabaseMessageSender} 中，会看到，有后台任务不断清理旧的 ReleaseMessage 记录
 	 * @param appId
 	 * @param cluster

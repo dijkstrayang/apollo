@@ -130,26 +130,23 @@ public class DatabaseMessageSender implements MessageSender
 	private void cleanMessage(Long id)
 	{
 		boolean hasMore = true;
-		//double check in case the release message is rolled back
-		//查询对应的 ReleaseMessage 对象，避免已经删除。
+		// double check in case the release message is rolled back
+		// 查询对应的 ReleaseMessage 对象，避免已经删除。
 		// 因为，DatabaseMessageSender 会在多进程中执行。
-		// 例如：1）Config Service + Admin Service ；
-		// 2）N * Config Service ；
-		// 3）N * Admin Service
-		//为什么 Config Service 和 Admin Service 都会启动清理任务呢？😈
+		// 例如：1）Config Service + Admin Service；2）N * Config Service；3）N * Admin Service
+		// 为什么 Config Service 和 Admin Service 都会启动清理任务呢？
 		// 因为 DatabaseMessageSender 添加了 @Component 注解，而 NamespaceService 注入了 DatabaseMessageSender 。
-		// 而 NamespaceService 被 apollo-adminservice 和 apoll-configservice 项目都引用了，所以都会启动该任务。
+		// 而 NamespaceService 被 apollo-adminservice 和 apollo-configservice 项目都引用了，所以都会启动该任务。
 		ReleaseMessage releaseMessage = releaseMessageRepository.findById(id).orElse(null);
 		if (releaseMessage == null)
 		{
 			return;
 		}
-		// 循环删除相同消息内容( `message` )的老消息
+		// 循环删除相同消息内容(`message`)的老消息
 		while (hasMore && !Thread.currentThread().isInterrupted())
 		{
 			// 拉取相同消息内容的 100 条的老消息
-			// 老消息的定义：比当前消息编号小，即先发送的
-			// 按照 id 升序
+			// 老消息的定义：比当前消息编号小，即先发送的。按照 id 升序
 			List<ReleaseMessage> messages = releaseMessageRepository.findFirst100ByMessageAndIdLessThanOrderByIdAsc(
 					releaseMessage.getMessage(), releaseMessage.getId());
 			// 删除老消息

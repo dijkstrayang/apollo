@@ -34,7 +34,7 @@ public class ReleaseMessageScanner implements InitializingBean
 	 */
 	private int databaseScanInterval;
 	/**
-	 * 监听器数组.监听器数组。通过 #addMessageListener(ReleaseMessageListener) 方法，注册 ReleaseMessageListener 。
+	 * 监听器数组。通过 #addMessageListener(ReleaseMessageListener) 方法，注册 ReleaseMessageListener 。
 	 * 在 MessageScannerConfiguration 中，调用该方法，初始化 ReleaseMessageScanner 的监听器们
 	 */
 	private List<ReleaseMessageListener> listeners;
@@ -67,7 +67,7 @@ public class ReleaseMessageScanner implements InitializingBean
 		databaseScanInterval = bizConfig.releaseMessageScanIntervalInMilli();
 		// 获得最大的 ReleaseMessage 的编号
 		maxIdScanned = loadLargestMessageId();
-		//创建从 DB 中扫描 ReleaseMessage 表的定时任务
+		// 创建从 DB 中扫描 ReleaseMessage 表的定时任务
 		executorService.scheduleWithFixedDelay((Runnable) () -> {
 			Transaction transaction = Tracer.newTransaction("Apollo.ReleaseMessageScanner", "scanMessage");
 			try
@@ -86,7 +86,6 @@ public class ReleaseMessageScanner implements InitializingBean
 				transaction.complete();
 			}
 		}, databaseScanInterval, databaseScanInterval, TimeUnit.MILLISECONDS);
-
 	}
 
 	/**
@@ -115,7 +114,7 @@ public class ReleaseMessageScanner implements InitializingBean
 	}
 
 	/**
-	 * scan messages and send 扫描消息，并返回是否继续有新的 ReleaseMessage 可以继续扫描
+	 * 扫描消息，并返回是否继续有新的 ReleaseMessage 可以继续扫描
 	 *
 	 * @return whether there are more messages
 	 */
