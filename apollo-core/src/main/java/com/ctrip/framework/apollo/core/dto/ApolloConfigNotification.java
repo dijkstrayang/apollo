@@ -7,7 +7,7 @@ package com.ctrip.framework.apollo.core.dto;
 public class ApolloConfigNotification
 {
 	/**
-	 * Namespace 名字
+	 * Namespace 名字 一个 Namespace 对应一个 ApolloConfigNotification 对象。
 	 */
 	private String namespaceName;
 	/**
