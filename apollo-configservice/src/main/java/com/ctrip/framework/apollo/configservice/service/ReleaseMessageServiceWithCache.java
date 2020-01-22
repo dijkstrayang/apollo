@@ -30,7 +30,7 @@ import com.google.common.collect.Maps;
 /**
  * @author Jason Song(song_s@ctrip.com)
  * 实现 InitializingBean 和 ReleaseMessageListener 接口，缓存 ReleaseMessage 的 Service 实现类。通过将 ReleaseMessage 缓存在内存中，提高查询性能
- * 1.启动时，初始化 ReleaseMessage 到缓存。
+ * 1. 启动时，初始化 ReleaseMessage 到缓存。
  * 2. 新增时，基于 ReleaseMessageListener ，通知有新的 ReleaseMessage ，根据是否有消息间隙，直接使用该 ReleaseMessage 或从数据库读取。
  * */
 @Service

@@ -133,7 +133,7 @@ public class NotificationControllerV2 implements ReleaseMessageListener
 			ApolloConfigNotification notification = notificationEntry.getValue();
 			// 添加到 `namespaces` 中。
 			namespaces.add(normalizedNamespace);
-			// 添加到 `clientSideNotifications` 中。
+			// 添加到 `clientSideNotifications` 中。key 是 namespace, values 是 messageId
 			clientSideNotifications.put(normalizedNamespace, notification.getNotificationId());
 			// 记录名字被归一化的 Namespace 。因为，最终返回给客户端，使用原始的 Namespace 名字，否则客户端无法识别
 			if (!Objects.equals(notification.getNamespaceName(), normalizedNamespace))
@@ -151,7 +151,7 @@ public class NotificationControllerV2 implements ReleaseMessageListener
 		//组装 Watch Key Multimap
 		Multimap<String, String> watchedKeysMap = watchKeysUtil.assembleAllWatchKeys(appId, cluster, namespaces,
 				dataCenter);
-		// 生成 Watch Key 集合
+		// 生成 Watch Key 集合,就是 appId + cluster + namespace
 		Set<String> watchedKeys = Sets.newHashSet(watchedKeysMap.values());
 
 		/**
@@ -183,7 +183,7 @@ public class NotificationControllerV2 implements ReleaseMessageListener
 				cluster, namespaces, dataCenter);
 
 		/**
-		 * 2、check new release 获得 Watch Key 集合中，每个 Watch Key 对应的 ReleaseMessage 记录。
+		 * 2、从缓存得到最新的发布消息 check new release 获得 Watch Key 集合中，每个 Watch Key 对应的 ReleaseMessage 记录。
 		 */
 		List<ReleaseMessage> latestReleaseMessages = releaseMessageService
 				.findLatestReleaseMessagesGroupByMessages(watchedKeys);
@@ -203,7 +203,7 @@ public class NotificationControllerV2 implements ReleaseMessageListener
 		// 获得新的 ApolloConfigNotification 通知数组
 		List<ApolloConfigNotification> newNotifications = getApolloConfigNotifications(namespaces,
 				clientSideNotifications, watchedKeysMap, latestReleaseMessages);
-		// 若有新的通知，直接设置结果。
+		// 若有新的通知，直接设置并返回结果，不等待
 		if (!CollectionUtils.isEmpty(newNotifications))
 		{
 			deferredResultWrapper.setResult(newNotifications);
@@ -214,7 +214,7 @@ public class NotificationControllerV2 implements ReleaseMessageListener
 
 	/**
 	 * 过滤并创建 ApolloConfigNotification Map 。其中，KEY 为 Namespace 的名字
-     * 目的是客户端传递的 Namespace 的名字不是正确的，例如大小写不对，需要做下归一化( normalized )处理。
+	 * 目的是客户端传递的 Namespace 的名字不是正确的，例如大小写不对，需要做下归一化( normalized )处理。
 	 * @param appId
 	 * @param notifications
 	 * @return
@@ -243,7 +243,7 @@ public class NotificationControllerV2 implements ReleaseMessageListener
 			// such as FX.apollo = 1 but fx.apollo = 2, we should let FX.apollo have the chance to update its notification id
 			// which means we should record FX.apollo = 1 here and ignore fx.apollo = 2
 			// 如果客户端 Namespace 的名字有大小写的问题，并且恰好有不同的通知编号。例如 Namespace 名字为 FX.apollo 的通知编号是 1 ，但是 fx.apollo 的通知编号为 2 。
-			// 我们应该让 FX.apollo 可以更新它的通知编号， 所以，我们使用 FX.apollo 的 ApolloConfigNotification 对象，添加到结果，而忽略 fx.apollo 。
+			// 我们应该让 FX.apollo 可以更新它的通知编号， 所以，我们使用 FX.apollo 的 ApolloConfigNotification 对象，添加到结果，而忽略 fx.apollo 。???
 			if (filteredNotifications.containsKey(normalizedNamespace) && filteredNotifications.get(normalizedNamespace)
 					.getNotificationId() < notification.getNotificationId())
 			{

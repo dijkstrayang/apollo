@@ -16,6 +16,11 @@ public class NamespaceUtil {
     this.appNamespaceServiceWithCache = appNamespaceServiceWithCache;
   }
 
+  /**
+   * 若 Namespace 名以 .properties 结尾，移除该结尾
+   * @param namespaceName
+   * @return
+   */
   public String filterNamespaceName(String namespaceName) {
     if (namespaceName.toLowerCase().endsWith(".properties")) {
       int dotIndex = namespaceName.lastIndexOf(".");
