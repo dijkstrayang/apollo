@@ -23,70 +23,91 @@ import java.util.List;
 import java.util.Objects;
 
 @RestController
-public class AppController {
+public class AppController
+{
 
-  private final AppService appService;
-  private final AdminService adminService;
+	private final AppService appService;
+	private final AdminService adminService;
 
-  public AppController(final AppService appService, final AdminService adminService) {
-    this.appService = appService;
-    this.adminService = adminService;
-  }
+	public AppController(final AppService appService, final AdminService adminService)
+	{
+		this.appService = appService;
+		this.adminService = adminService;
+	}
 
-  @PostMapping("/apps")
-  public AppDTO create(@Valid @RequestBody AppDTO dto) {
-    App entity = BeanUtils.transform(App.class, dto);
-    App managedEntity = appService.findOne(entity.getAppId());
-    if (managedEntity != null) {
-      throw new BadRequestException("app already exist.");
-    }
+	/**
+	 * 创建APP
+	 * @param dto
+	 * @return
+	 */
+	@PostMapping("/apps")
+	public AppDTO create(@Valid @RequestBody AppDTO dto)
+	{
+		// 将 AppDTO 转换成 App 对象
+		App entity = BeanUtils.transform(App.class, dto);
+		// 判断 `appId` 是否已经存在对应的 App 对象。若已经存在，抛出 BadRequestException 异常
+		App managedEntity = appService.findOne(entity.getAppId());
+		if (managedEntity != null)
+		{
+			throw new BadRequestException("app already exist.");
+		}
+		// 保存 App 对象到数据库
+		entity = adminService.createNewApp(entity);
+		// 将保存的 App 对象，转换成 AppDTO 返回
+		return BeanUtils.transform(AppDTO.class, entity);
+	}
 
-    entity = adminService.createNewApp(entity);
+	@DeleteMapping("/apps/{appId:.+}")
+	public void delete(@PathVariable("appId") String appId, @RequestParam String operator)
+	{
+		App entity = appService.findOne(appId);
+		if (entity == null)
+		{
+			throw new NotFoundException("app not found for appId " + appId);
+		}
+		adminService.deleteApp(entity, operator);
+	}
 
-    return BeanUtils.transform(AppDTO.class, entity);
-  }
+	@PutMapping("/apps/{appId:.+}")
+	public void update(@PathVariable String appId, @RequestBody App app)
+	{
+		if (!Objects.equals(appId, app.getAppId()))
+		{
+			throw new BadRequestException("The App Id of path variable and request body is different");
+		}
 
-  @DeleteMapping("/apps/{appId:.+}")
-  public void delete(@PathVariable("appId") String appId, @RequestParam String operator) {
-    App entity = appService.findOne(appId);
-    if (entity == null) {
-      throw new NotFoundException("app not found for appId " + appId);
-    }
-    adminService.deleteApp(entity, operator);
-  }
+		appService.update(app);
+	}
 
-  @PutMapping("/apps/{appId:.+}")
-  public void update(@PathVariable String appId, @RequestBody App app) {
-    if (!Objects.equals(appId, app.getAppId())) {
-      throw new BadRequestException("The App Id of path variable and request body is different");
-    }
+	@GetMapping("/apps")
+	public List<AppDTO> find(@RequestParam(value = "name", required = false) String name, Pageable pageable)
+	{
+		List<App> app = null;
+		if (StringUtils.isBlank(name))
+		{
+			app = appService.findAll(pageable);
+		}
+		else
+		{
+			app = appService.findByName(name);
+		}
+		return BeanUtils.batchTransform(AppDTO.class, app);
+	}
 
-    appService.update(app);
-  }
+	@GetMapping("/apps/{appId:.+}")
+	public AppDTO get(@PathVariable("appId") String appId)
+	{
+		App app = appService.findOne(appId);
+		if (app == null)
+		{
+			throw new NotFoundException("app not found for appId " + appId);
+		}
+		return BeanUtils.transform(AppDTO.class, app);
+	}
 
-  @GetMapping("/apps")
-  public List<AppDTO> find(@RequestParam(value = "name", required = false) String name,
-                           Pageable pageable) {
-    List<App> app = null;
-    if (StringUtils.isBlank(name)) {
-      app = appService.findAll(pageable);
-    } else {
-      app = appService.findByName(name);
-    }
-    return BeanUtils.batchTransform(AppDTO.class, app);
-  }
-
-  @GetMapping("/apps/{appId:.+}")
-  public AppDTO get(@PathVariable("appId") String appId) {
-    App app = appService.findOne(appId);
-    if (app == null) {
-      throw new NotFoundException("app not found for appId " + appId);
-    }
-    return BeanUtils.transform(AppDTO.class, app);
-  }
-
-  @GetMapping("/apps/{appId}/unique")
-  public boolean isAppIdUnique(@PathVariable("appId") String appId) {
-    return appService.isAppIdUnique(appId);
-  }
+	@GetMapping("/apps/{appId}/unique")
+	public boolean isAppIdUnique(@PathVariable("appId") String appId)
+	{
+		return appService.isAppIdUnique(appId);
+	}
 }
