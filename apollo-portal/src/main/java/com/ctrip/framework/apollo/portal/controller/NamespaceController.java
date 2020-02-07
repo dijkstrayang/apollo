@@ -187,25 +187,43 @@ public class NamespaceController {
     return BeanUtils.transform(AppNamespaceDTO.class, appNamespace);
   }
 
-  @PreAuthorize(value = "@permissionValidator.hasCreateAppNamespacePermission(#appId, #appNamespace)")
+  /**
+   * portal 创建appnamespace
+   * @param appId
+   * @param appendNamespacePrefix
+   * @param appNamespace
+   * @return
+   */
+  @PreAuthorize(value = "@permissionValidator.hasCreateAppNamespacePermission(#appId, #appNamespace)")//校验是否有创建 AppNamespace 的权限
   @PostMapping("/apps/{appId}/appnamespaces")
   public AppNamespace createAppNamespace(@PathVariable String appId,
       @RequestParam(defaultValue = "true") boolean appendNamespacePrefix,
       @Valid @RequestBody AppNamespace appNamespace) {
+    /**
+     *  校验 AppNamespace 的 `name` 格式正确
+     */
     if (!InputValidator.isValidAppNamespace(appNamespace.getName())) {
       throw new BadRequestException(String.format("Invalid Namespace format: %s",
           InputValidator.INVALID_CLUSTER_NAMESPACE_MESSAGE + " & " + InputValidator.INVALID_NAMESPACE_NAMESPACE_MESSAGE));
     }
-
+    // 保存 AppNamespace 对象到数据库
     AppNamespace createdAppNamespace = appNamespaceService.createAppNamespaceInLocal(appNamespace, appendNamespacePrefix);
 
+    /**
+     * 赋予权限，若满足如下任一条件
+     * 1. 公开类型的 AppNamespace
+     * 2. 私有类型的 AppNamespace ，并且允许 App 管理员创建私有类型的 AppNamespace
+     */
     if (portalConfig.canAppAdminCreatePrivateNamespace() || createdAppNamespace.isPublic()) {
+      // 赋予修改、发布的角色
       namespaceService.assignNamespaceRoleToOperator(appId, appNamespace.getName(),
           userInfoHolder.getUser().getUserId());
     }
 
+    // 发布 AppNamespaceCreationEvent 创建事件
     publisher.publishEvent(new AppNamespaceCreationEvent(createdAppNamespace));
 
+    // 返回创建的 AppNamespace 对象
     return createdAppNamespace;
   }
 

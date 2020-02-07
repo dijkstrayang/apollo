@@ -1,19 +1,24 @@
 package com.ctrip.framework.apollo.portal.listener;
 
-import com.google.common.base.Preconditions;
-
-import com.ctrip.framework.apollo.common.entity.AppNamespace;
-
 import org.springframework.context.ApplicationEvent;
 
-public class AppNamespaceCreationEvent extends ApplicationEvent {
+import com.ctrip.framework.apollo.common.entity.AppNamespace;
+import com.google.common.base.Preconditions;
 
-  public AppNamespaceCreationEvent(Object source) {
-    super(source);
-  }
+/**
+ * AppNamespace 创建事件
+ */
+public class AppNamespaceCreationEvent extends ApplicationEvent
+{
 
-  public AppNamespace getAppNamespace() {
-    Preconditions.checkState(source != null);
-    return (AppNamespace) this.source;
-  }
+	public AppNamespaceCreationEvent(Object source)
+	{
+		super(source);
+	}
+
+	public AppNamespace getAppNamespace()
+	{
+		Preconditions.checkState(source != null);
+		return (AppNamespace) this.source;
+	}
 }

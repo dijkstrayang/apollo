@@ -6,6 +6,9 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.PagingAndSortingRepository;
 
+/**
+ * 提供 AppNamespace 的数据访问，即 DAO 。
+ */
 public interface AppNamespaceRepository extends PagingAndSortingRepository<AppNamespace, Long> {
 
   AppNamespace findByAppIdAndName(String appId, String namespaceName);

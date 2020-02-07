@@ -169,6 +169,7 @@ public class PortalConfig extends RefreshableConfig {
   }
 
   public boolean canAppAdminCreatePrivateNamespace() {
+    // admin.createPrivateNamespace.switch 【在 ServerConfig 表】
     return getBooleanProperty("admin.createPrivateNamespace.switch", true);
   }
 

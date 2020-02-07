@@ -57,8 +57,11 @@ public class CreationListener
 	@EventListener
 	public void onAppNamespaceCreationEvent(AppNamespaceCreationEvent event)
 	{
+		// 将 AppNamespace 转成 AppNamespaceDTO 对象
 		AppNamespaceDTO appNamespace = BeanUtils.transform(AppNamespaceDTO.class, event.getAppNamespace());
+		// 获得有效的 Env 数组
 		List<Env> envs = portalSettings.getActiveEnvs();
+		// 循环 Env 数组，调用对应的 Admin Service 的 API ，创建 AppNamespace 对象
 		for (Env env : envs)
 		{
 			try
