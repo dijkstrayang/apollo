@@ -1,80 +1,107 @@
 package com.ctrip.framework.apollo.biz.entity;
 
-import com.ctrip.framework.apollo.common.entity.BaseEntity;
-
-import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.Where;
-
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Lob;
 import javax.persistence.Table;
 
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.Where;
+
+import com.ctrip.framework.apollo.common.entity.BaseEntity;
+
+/**
+ * 记录 Item 的 KV 变更历史
+ * Commit 的设计，在我们日常的管理后台，对重要数据的变更，可以作为参考
+ */
 @Entity
-@Table(name = "Commit")
+@Table(name = "Commit")g
 @SQLDelete(sql = "Update Commit set isDeleted = 1 where id = ?")
 @Where(clause = "isDeleted = 0")
-public class Commit extends BaseEntity {
+public class Commit extends BaseEntity
+{
+	/**
+	 *  变更集合
+	 *  JSON 格式化，使用 {@link com.ctrip.framework.apollo.biz.utils.ConfigChangeContentBuilder} 生成
+	 */
+	@Lob
+	@Column(name = "ChangeSets", nullable = false)
+	private String changeSets;
+	/**
+	 * App 编号
+	 */
+	@Column(name = "AppId", nullable = false)
+	private String appId;
+	/**
+	 * Cluster 名字
+	 */
+	@Column(name = "ClusterName", nullable = false)
+	private String clusterName;
+	/**
+	 * Namespace 名字
+	 */
+	@Column(name = "NamespaceName", nullable = false)
+	private String namespaceName;
+	/**
+	 * 备注
+	 */
+	@Column(name = "Comment")
+	private String comment;
 
-  @Lob
-  @Column(name = "ChangeSets", nullable = false)
-  private String changeSets;
+	public String getChangeSets()
+	{
+		return changeSets;
+	}
 
-  @Column(name = "AppId", nullable = false)
-  private String appId;
+	public void setChangeSets(String changeSets)
+	{
+		this.changeSets = changeSets;
+	}
 
-  @Column(name = "ClusterName", nullable = false)
-  private String clusterName;
+	public String getAppId()
+	{
+		return appId;
+	}
 
-  @Column(name = "NamespaceName", nullable = false)
-  private String namespaceName;
+	public void setAppId(String appId)
+	{
+		this.appId = appId;
+	}
 
-  @Column(name = "Comment")
-  private String comment;
+	public String getClusterName()
+	{
+		return clusterName;
+	}
 
-  public String getChangeSets() {
-    return changeSets;
-  }
+	public void setClusterName(String clusterName)
+	{
+		this.clusterName = clusterName;
+	}
 
-  public void setChangeSets(String changeSets) {
-    this.changeSets = changeSets;
-  }
+	public String getNamespaceName()
+	{
+		return namespaceName;
+	}
 
-  public String getAppId() {
-    return appId;
-  }
+	public void setNamespaceName(String namespaceName)
+	{
+		this.namespaceName = namespaceName;
+	}
 
-  public void setAppId(String appId) {
-    this.appId = appId;
-  }
+	public String getComment()
+	{
+		return comment;
+	}
 
-  public String getClusterName() {
-    return clusterName;
-  }
+	public void setComment(String comment)
+	{
+		this.comment = comment;
+	}
 
-  public void setClusterName(String clusterName) {
-    this.clusterName = clusterName;
-  }
-
-  public String getNamespaceName() {
-    return namespaceName;
-  }
-
-  public void setNamespaceName(String namespaceName) {
-    this.namespaceName = namespaceName;
-  }
-
-  public String getComment() {
-    return comment;
-  }
-
-  public void setComment(String comment) {
-    this.comment = comment;
-  }
-
-  @Override
-  public String toString() {
-    return toStringHelper().add("changeSets", changeSets).add("appId", appId).add("clusterName", clusterName)
-        .add("namespaceName", namespaceName).add("comment", comment).toString();
-  }
+	@Override
+	public String toString()
+	{
+		return toStringHelper().add("changeSets", changeSets).add("appId", appId).add("clusterName", clusterName)
+				.add("namespaceName", namespaceName).add("comment", comment).toString();
+	}
 }

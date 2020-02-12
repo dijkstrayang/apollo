@@ -1,5 +1,17 @@
 package com.ctrip.framework.apollo.portal.service;
 
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.ctrip.framework.apollo.common.constants.GsonType;
 import com.ctrip.framework.apollo.common.dto.ItemDTO;
 import com.ctrip.framework.apollo.common.dto.NamespaceDTO;
@@ -23,314 +35,324 @@ import com.ctrip.framework.apollo.tracer.Tracer;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.gson.Gson;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class NamespaceService {
+public class NamespaceService
+{
 
-  private Logger logger = LoggerFactory.getLogger(NamespaceService.class);
-  private Gson gson = new Gson();
+	private Logger logger = LoggerFactory.getLogger(NamespaceService.class);
+	private Gson gson = new Gson();
 
-  private final PortalConfig portalConfig;
-  private final PortalSettings portalSettings;
-  private final UserInfoHolder userInfoHolder;
-  private final AdminServiceAPI.NamespaceAPI namespaceAPI;
-  private final ItemService itemService;
-  private final ReleaseService releaseService;
-  private final AppNamespaceService appNamespaceService;
-  private final InstanceService instanceService;
-  private final NamespaceBranchService branchService;
-  private final RolePermissionService rolePermissionService;
+	private final PortalConfig portalConfig;
+	private final PortalSettings portalSettings;
+	private final UserInfoHolder userInfoHolder;
+	private final AdminServiceAPI.NamespaceAPI namespaceAPI;
+	private final ItemService itemService;
+	private final ReleaseService releaseService;
+	private final AppNamespaceService appNamespaceService;
+	private final InstanceService instanceService;
+	private final NamespaceBranchService branchService;
+	private final RolePermissionService rolePermissionService;
 
-  public NamespaceService(
-      final PortalConfig portalConfig,
-      final PortalSettings portalSettings,
-      final UserInfoHolder userInfoHolder,
-      final AdminServiceAPI.NamespaceAPI namespaceAPI,
-      final ItemService itemService,
-      final ReleaseService releaseService,
-      final AppNamespaceService appNamespaceService,
-      final InstanceService instanceService,
-      final @Lazy NamespaceBranchService branchService,
-      final RolePermissionService rolePermissionService) {
-    this.portalConfig = portalConfig;
-    this.portalSettings = portalSettings;
-    this.userInfoHolder = userInfoHolder;
-    this.namespaceAPI = namespaceAPI;
-    this.itemService = itemService;
-    this.releaseService = releaseService;
-    this.appNamespaceService = appNamespaceService;
-    this.instanceService = instanceService;
-    this.branchService = branchService;
-    this.rolePermissionService = rolePermissionService;
-  }
+	public NamespaceService(final PortalConfig portalConfig, final PortalSettings portalSettings,
+			final UserInfoHolder userInfoHolder, final AdminServiceAPI.NamespaceAPI namespaceAPI,
+			final ItemService itemService, final ReleaseService releaseService,
+			final AppNamespaceService appNamespaceService, final InstanceService instanceService,
+			final @Lazy NamespaceBranchService branchService, final RolePermissionService rolePermissionService)
+	{
+		this.portalConfig = portalConfig;
+		this.portalSettings = portalSettings;
+		this.userInfoHolder = userInfoHolder;
+		this.namespaceAPI = namespaceAPI;
+		this.itemService = itemService;
+		this.releaseService = releaseService;
+		this.appNamespaceService = appNamespaceService;
+		this.instanceService = instanceService;
+		this.branchService = branchService;
+		this.rolePermissionService = rolePermissionService;
+	}
 
+	public NamespaceDTO createNamespace(Env env, NamespaceDTO namespace)
+	{
+	    // 设置 NamespaceDTO 的创建和修改人为当前管理员
+		if (StringUtils.isEmpty(namespace.getDataChangeCreatedBy()))
+		{
+			namespace.setDataChangeCreatedBy(userInfoHolder.getUser().getUserId());
+		}
+		namespace.setDataChangeLastModifiedBy(userInfoHolder.getUser().getUserId());
+		// 创建 Namespace 到 Admin Service
+		NamespaceDTO createdNamespace = namespaceAPI.createNamespace(env, namespace);
 
-  public NamespaceDTO createNamespace(Env env, NamespaceDTO namespace) {
-    if (StringUtils.isEmpty(namespace.getDataChangeCreatedBy())) {
-      namespace.setDataChangeCreatedBy(userInfoHolder.getUser().getUserId());
-    }
-    namespace.setDataChangeLastModifiedBy(userInfoHolder.getUser().getUserId());
-    NamespaceDTO createdNamespace = namespaceAPI.createNamespace(env, namespace);
+		Tracer.logEvent(TracerEventType.CREATE_NAMESPACE, String.format("%s+%s+%s+%s", namespace.getAppId(), env,
+				namespace.getClusterName(), namespace.getNamespaceName()));
+		return createdNamespace;
+	}
 
-    Tracer.logEvent(TracerEventType.CREATE_NAMESPACE,
-        String.format("%s+%s+%s+%s", namespace.getAppId(), env, namespace.getClusterName(),
-            namespace.getNamespaceName()));
-    return createdNamespace;
-  }
+	@Transactional
+	public void deleteNamespace(String appId, Env env, String clusterName, String namespaceName)
+	{
 
+		AppNamespace appNamespace = appNamespaceService.findByAppIdAndName(appId, namespaceName);
 
-  @Transactional
-  public void deleteNamespace(String appId, Env env, String clusterName, String namespaceName) {
+		//1. check parent namespace has not instances
+		if (namespaceHasInstances(appId, env, clusterName, namespaceName))
+		{
+			throw new BadRequestException("Can not delete namespace because namespace has active instances");
+		}
 
-    AppNamespace appNamespace = appNamespaceService.findByAppIdAndName(appId, namespaceName);
+		//2. check child namespace has not instances
+		NamespaceDTO childNamespace = branchService.findBranchBaseInfo(appId, env, clusterName, namespaceName);
+		if (childNamespace != null && namespaceHasInstances(appId, env, childNamespace.getClusterName(), namespaceName))
+		{
+			throw new BadRequestException("Can not delete namespace because namespace's branch has active instances");
+		}
 
-    //1. check parent namespace has not instances
-    if (namespaceHasInstances(appId, env, clusterName, namespaceName)) {
-      throw new BadRequestException(
-          "Can not delete namespace because namespace has active instances");
-    }
+		//3. check public namespace has not associated namespace
+		if (appNamespace != null && appNamespace.isPublic()
+				&& publicAppNamespaceHasAssociatedNamespace(namespaceName, env))
+		{
+			throw new BadRequestException("Can not delete public namespace which has associated namespaces");
+		}
 
-    //2. check child namespace has not instances
-    NamespaceDTO childNamespace = branchService
-        .findBranchBaseInfo(appId, env, clusterName, namespaceName);
-    if (childNamespace != null &&
-        namespaceHasInstances(appId, env, childNamespace.getClusterName(), namespaceName)) {
-      throw new BadRequestException(
-          "Can not delete namespace because namespace's branch has active instances");
-    }
+		String operator = userInfoHolder.getUser().getUserId();
 
-    //3. check public namespace has not associated namespace
-    if (appNamespace != null && appNamespace.isPublic() && publicAppNamespaceHasAssociatedNamespace(
-        namespaceName, env)) {
-      throw new BadRequestException(
-          "Can not delete public namespace which has associated namespaces");
-    }
+		namespaceAPI.deleteNamespace(env, appId, clusterName, namespaceName, operator);
+	}
 
-    String operator = userInfoHolder.getUser().getUserId();
+	public NamespaceDTO loadNamespaceBaseInfo(String appId, Env env, String clusterName, String namespaceName)
+	{
+		NamespaceDTO namespace = namespaceAPI.loadNamespace(appId, env, clusterName, namespaceName);
+		if (namespace == null)
+		{
+			throw new BadRequestException("namespaces not exist");
+		}
+		return namespace;
+	}
 
-    namespaceAPI.deleteNamespace(env, appId, clusterName, namespaceName, operator);
-  }
+	/**
+	 * load cluster all namespace info with items
+	 */
+	public List<NamespaceBO> findNamespaceBOs(String appId, Env env, String clusterName)
+	{
 
-  public NamespaceDTO loadNamespaceBaseInfo(String appId, Env env, String clusterName,
-      String namespaceName) {
-    NamespaceDTO namespace = namespaceAPI.loadNamespace(appId, env, clusterName, namespaceName);
-    if (namespace == null) {
-      throw new BadRequestException("namespaces not exist");
-    }
-    return namespace;
-  }
+		List<NamespaceDTO> namespaces = namespaceAPI.findNamespaceByCluster(appId, env, clusterName);
+		if (namespaces == null || namespaces.size() == 0)
+		{
+			throw new BadRequestException("namespaces not exist");
+		}
 
-  /**
-   * load cluster all namespace info with items
-   */
-  public List<NamespaceBO> findNamespaceBOs(String appId, Env env, String clusterName) {
+		List<NamespaceBO> namespaceBOs = new LinkedList<>();
+		for (NamespaceDTO namespace : namespaces)
+		{
 
-    List<NamespaceDTO> namespaces = namespaceAPI.findNamespaceByCluster(appId, env, clusterName);
-    if (namespaces == null || namespaces.size() == 0) {
-      throw new BadRequestException("namespaces not exist");
-    }
+			NamespaceBO namespaceBO;
+			try
+			{
+				namespaceBO = transformNamespace2BO(env, namespace);
+				namespaceBOs.add(namespaceBO);
+			}
+			catch (Exception e)
+			{
+				logger.error("parse namespace error. app id:{}, env:{}, clusterName:{}, namespace:{}", appId, env,
+						clusterName, namespace.getNamespaceName(), e);
+				throw e;
+			}
+		}
 
-    List<NamespaceBO> namespaceBOs = new LinkedList<>();
-    for (NamespaceDTO namespace : namespaces) {
+		return namespaceBOs;
+	}
 
-      NamespaceBO namespaceBO;
-      try {
-        namespaceBO = transformNamespace2BO(env, namespace);
-        namespaceBOs.add(namespaceBO);
-      } catch (Exception e) {
-        logger.error("parse namespace error. app id:{}, env:{}, clusterName:{}, namespace:{}",
-            appId, env, clusterName, namespace.getNamespaceName(), e);
-        throw e;
-      }
-    }
+	public List<NamespaceDTO> findNamespaces(String appId, Env env, String clusterName)
+	{
+		return namespaceAPI.findNamespaceByCluster(appId, env, clusterName);
+	}
 
-    return namespaceBOs;
-  }
+	public List<NamespaceDTO> getPublicAppNamespaceAllNamespaces(Env env, String publicNamespaceName, int page,
+			int size)
+	{
+		return namespaceAPI.getPublicAppNamespaceAllNamespaces(env, publicNamespaceName, page, size);
+	}
 
-  public List<NamespaceDTO> findNamespaces(String appId, Env env, String clusterName) {
-    return namespaceAPI.findNamespaceByCluster(appId, env, clusterName);
-  }
+	public NamespaceBO loadNamespaceBO(String appId, Env env, String clusterName, String namespaceName)
+	{
+		NamespaceDTO namespace = namespaceAPI.loadNamespace(appId, env, clusterName, namespaceName);
+		if (namespace == null)
+		{
+			throw new BadRequestException("namespaces not exist");
+		}
+		return transformNamespace2BO(env, namespace);
+	}
 
-  public List<NamespaceDTO> getPublicAppNamespaceAllNamespaces(Env env, String publicNamespaceName,
-      int page,
-      int size) {
-    return namespaceAPI.getPublicAppNamespaceAllNamespaces(env, publicNamespaceName, page, size);
-  }
+	public boolean namespaceHasInstances(String appId, Env env, String clusterName, String namespaceName)
+	{
+		return instanceService.getInstanceCountByNamepsace(appId, env, clusterName, namespaceName) > 0;
+	}
 
-  public NamespaceBO loadNamespaceBO(String appId, Env env, String clusterName,
-      String namespaceName) {
-    NamespaceDTO namespace = namespaceAPI.loadNamespace(appId, env, clusterName, namespaceName);
-    if (namespace == null) {
-      throw new BadRequestException("namespaces not exist");
-    }
-    return transformNamespace2BO(env, namespace);
-  }
+	public boolean publicAppNamespaceHasAssociatedNamespace(String publicNamespaceName, Env env)
+	{
+		return namespaceAPI.countPublicAppNamespaceAssociatedNamespaces(env, publicNamespaceName) > 0;
+	}
 
-  public boolean namespaceHasInstances(String appId, Env env, String clusterName,
-      String namespaceName) {
-    return instanceService.getInstanceCountByNamepsace(appId, env, clusterName, namespaceName) > 0;
-  }
+	public NamespaceBO findPublicNamespaceForAssociatedNamespace(Env env, String appId, String clusterName,
+			String namespaceName)
+	{
+		NamespaceDTO namespace = namespaceAPI.findPublicNamespaceForAssociatedNamespace(env, appId, clusterName,
+				namespaceName);
 
-  public boolean publicAppNamespaceHasAssociatedNamespace(String publicNamespaceName, Env env) {
-    return namespaceAPI.countPublicAppNamespaceAssociatedNamespaces(env, publicNamespaceName) > 0;
-  }
+		return transformNamespace2BO(env, namespace);
+	}
 
-  public NamespaceBO findPublicNamespaceForAssociatedNamespace(Env env, String appId,
-      String clusterName, String namespaceName) {
-    NamespaceDTO namespace =
-        namespaceAPI
-            .findPublicNamespaceForAssociatedNamespace(env, appId, clusterName, namespaceName);
+	public Map<String, Map<String, Boolean>> getNamespacesPublishInfo(String appId)
+	{
+		Map<String, Map<String, Boolean>> result = Maps.newHashMap();
 
-    return transformNamespace2BO(env, namespace);
-  }
+		Set<Env> envs = portalConfig.publishTipsSupportedEnvs();
+		for (Env env : envs)
+		{
+			if (portalSettings.isEnvActive(env))
+			{
+				result.put(env.toString(), namespaceAPI.getNamespacePublishInfo(env, appId));
+			}
+		}
 
-  public Map<String, Map<String, Boolean>> getNamespacesPublishInfo(String appId) {
-    Map<String, Map<String, Boolean>> result = Maps.newHashMap();
+		return result;
+	}
 
-    Set<Env> envs = portalConfig.publishTipsSupportedEnvs();
-    for (Env env : envs) {
-      if (portalSettings.isEnvActive(env)) {
-        result.put(env.toString(), namespaceAPI.getNamespacePublishInfo(env, appId));
-      }
-    }
+	private NamespaceBO transformNamespace2BO(Env env, NamespaceDTO namespace)
+	{
+		NamespaceBO namespaceBO = new NamespaceBO();
+		namespaceBO.setBaseInfo(namespace);
 
-    return result;
-  }
+		String appId = namespace.getAppId();
+		String clusterName = namespace.getClusterName();
+		String namespaceName = namespace.getNamespaceName();
 
-  private NamespaceBO transformNamespace2BO(Env env, NamespaceDTO namespace) {
-    NamespaceBO namespaceBO = new NamespaceBO();
-    namespaceBO.setBaseInfo(namespace);
+		fillAppNamespaceProperties(namespaceBO);
 
-    String appId = namespace.getAppId();
-    String clusterName = namespace.getClusterName();
-    String namespaceName = namespace.getNamespaceName();
+		List<ItemBO> itemBOs = new LinkedList<>();
+		namespaceBO.setItems(itemBOs);
 
-    fillAppNamespaceProperties(namespaceBO);
+		//latest Release
+		ReleaseDTO latestRelease;
+		Map<String, String> releaseItems = new HashMap<>();
+		latestRelease = releaseService.loadLatestRelease(appId, env, clusterName, namespaceName);
+		if (latestRelease != null)
+		{
+			releaseItems = gson.fromJson(latestRelease.getConfigurations(), GsonType.CONFIG);
+		}
 
-    List<ItemBO> itemBOs = new LinkedList<>();
-    namespaceBO.setItems(itemBOs);
+		//not Release config items
+		List<ItemDTO> items = itemService.findItems(appId, env, clusterName, namespaceName);
+		int modifiedItemCnt = 0;
+		for (ItemDTO itemDTO : items)
+		{
 
-    //latest Release
-    ReleaseDTO latestRelease;
-    Map<String, String> releaseItems = new HashMap<>();
-    latestRelease = releaseService.loadLatestRelease(appId, env, clusterName, namespaceName);
-    if (latestRelease != null) {
-      releaseItems = gson.fromJson(latestRelease.getConfigurations(), GsonType.CONFIG);
-    }
+			ItemBO itemBO = transformItem2BO(itemDTO, releaseItems);
 
-    //not Release config items
-    List<ItemDTO> items = itemService.findItems(appId, env, clusterName, namespaceName);
-    int modifiedItemCnt = 0;
-    for (ItemDTO itemDTO : items) {
+			if (itemBO.isModified())
+			{
+				modifiedItemCnt++;
+			}
 
-      ItemBO itemBO = transformItem2BO(itemDTO, releaseItems);
+			itemBOs.add(itemBO);
+		}
 
-      if (itemBO.isModified()) {
-        modifiedItemCnt++;
-      }
+		//deleted items
+		List<ItemBO> deletedItems = parseDeletedItems(items, releaseItems);
+		itemBOs.addAll(deletedItems);
+		modifiedItemCnt += deletedItems.size();
 
-      itemBOs.add(itemBO);
-    }
+		namespaceBO.setItemModifiedCnt(modifiedItemCnt);
 
-    //deleted items
-    List<ItemBO> deletedItems = parseDeletedItems(items, releaseItems);
-    itemBOs.addAll(deletedItems);
-    modifiedItemCnt += deletedItems.size();
+		return namespaceBO;
+	}
 
-    namespaceBO.setItemModifiedCnt(modifiedItemCnt);
+	private void fillAppNamespaceProperties(NamespaceBO namespace)
+	{
 
-    return namespaceBO;
-  }
+		NamespaceDTO namespaceDTO = namespace.getBaseInfo();
+		//先从当前appId下面找,包含私有的和公共的
+		AppNamespace appNamespace = appNamespaceService.findByAppIdAndName(namespaceDTO.getAppId(),
+				namespaceDTO.getNamespaceName());
+		//再从公共的app namespace里面找
+		if (appNamespace == null)
+		{
+			appNamespace = appNamespaceService.findPublicAppNamespace(namespaceDTO.getNamespaceName());
+		}
 
-  private void fillAppNamespaceProperties(NamespaceBO namespace) {
+		String format;
+		boolean isPublic;
+		if (appNamespace == null)
+		{
+			//dirty data
+			format = ConfigFileFormat.Properties.getValue();
+			isPublic = true; // set to true, because public namespace allowed to delete by user
+		}
+		else
+		{
+			format = appNamespace.getFormat();
+			isPublic = appNamespace.isPublic();
+			namespace.setParentAppId(appNamespace.getAppId());
+			namespace.setComment(appNamespace.getComment());
+		}
+		namespace.setFormat(format);
+		namespace.setPublic(isPublic);
+	}
 
-    NamespaceDTO namespaceDTO = namespace.getBaseInfo();
-    //先从当前appId下面找,包含私有的和公共的
-    AppNamespace appNamespace =
-        appNamespaceService
-            .findByAppIdAndName(namespaceDTO.getAppId(), namespaceDTO.getNamespaceName());
-    //再从公共的app namespace里面找
-    if (appNamespace == null) {
-      appNamespace = appNamespaceService.findPublicAppNamespace(namespaceDTO.getNamespaceName());
-    }
+	private List<ItemBO> parseDeletedItems(List<ItemDTO> newItems, Map<String, String> releaseItems)
+	{
+		Map<String, ItemDTO> newItemMap = BeanUtils.mapByKey("key", newItems);
 
-    String format;
-    boolean isPublic;
-    if (appNamespace == null) {
-      //dirty data
-      format = ConfigFileFormat.Properties.getValue();
-      isPublic = true; // set to true, because public namespace allowed to delete by user
-    } else {
-      format = appNamespace.getFormat();
-      isPublic = appNamespace.isPublic();
-      namespace.setParentAppId(appNamespace.getAppId());
-      namespace.setComment(appNamespace.getComment());
-    }
-    namespace.setFormat(format);
-    namespace.setPublic(isPublic);
-  }
+		List<ItemBO> deletedItems = new LinkedList<>();
+		for (Map.Entry<String, String> entry : releaseItems.entrySet())
+		{
+			String key = entry.getKey();
+			if (newItemMap.get(key) == null)
+			{
+				ItemBO deletedItem = new ItemBO();
 
-  private List<ItemBO> parseDeletedItems(List<ItemDTO> newItems, Map<String, String> releaseItems) {
-    Map<String, ItemDTO> newItemMap = BeanUtils.mapByKey("key", newItems);
+				deletedItem.setDeleted(true);
+				ItemDTO deletedItemDto = new ItemDTO();
+				deletedItemDto.setKey(key);
+				String oldValue = entry.getValue();
+				deletedItem.setItem(deletedItemDto);
 
-    List<ItemBO> deletedItems = new LinkedList<>();
-    for (Map.Entry<String, String> entry : releaseItems.entrySet()) {
-      String key = entry.getKey();
-      if (newItemMap.get(key) == null) {
-        ItemBO deletedItem = new ItemBO();
+				deletedItemDto.setValue(oldValue);
+				deletedItem.setModified(true);
+				deletedItem.setOldValue(oldValue);
+				deletedItem.setNewValue("");
+				deletedItems.add(deletedItem);
+			}
+		}
+		return deletedItems;
+	}
 
-        deletedItem.setDeleted(true);
-        ItemDTO deletedItemDto = new ItemDTO();
-        deletedItemDto.setKey(key);
-        String oldValue = entry.getValue();
-        deletedItem.setItem(deletedItemDto);
+	private ItemBO transformItem2BO(ItemDTO itemDTO, Map<String, String> releaseItems)
+	{
+		String key = itemDTO.getKey();
+		ItemBO itemBO = new ItemBO();
+		itemBO.setItem(itemDTO);
+		String newValue = itemDTO.getValue();
+		String oldValue = releaseItems.get(key);
+		//new item or modified
+		if (!StringUtils.isEmpty(key) && (oldValue == null || !newValue.equals(oldValue)))
+		{
+			itemBO.setModified(true);
+			itemBO.setOldValue(oldValue == null ? "" : oldValue);
+			itemBO.setNewValue(newValue);
+		}
+		return itemBO;
+	}
 
-        deletedItemDto.setValue(oldValue);
-        deletedItem.setModified(true);
-        deletedItem.setOldValue(oldValue);
-        deletedItem.setNewValue("");
-        deletedItems.add(deletedItem);
-      }
-    }
-    return deletedItems;
-  }
+	public void assignNamespaceRoleToOperator(String appId, String namespaceName, String operator)
+	{
+		//default assign modify、release namespace role to namespace creator
 
-  private ItemBO transformItem2BO(ItemDTO itemDTO, Map<String, String> releaseItems) {
-    String key = itemDTO.getKey();
-    ItemBO itemBO = new ItemBO();
-    itemBO.setItem(itemDTO);
-    String newValue = itemDTO.getValue();
-    String oldValue = releaseItems.get(key);
-    //new item or modified
-    if (!StringUtils.isEmpty(key) && (oldValue == null || !newValue.equals(oldValue))) {
-      itemBO.setModified(true);
-      itemBO.setOldValue(oldValue == null ? "" : oldValue);
-      itemBO.setNewValue(newValue);
-    }
-    return itemBO;
-  }
-
-  public void assignNamespaceRoleToOperator(String appId, String namespaceName, String operator) {
-    //default assign modify、release namespace role to namespace creator
-
-    rolePermissionService
-        .assignRoleToUsers(
-            RoleUtils.buildNamespaceRoleName(appId, namespaceName, RoleType.MODIFY_NAMESPACE),
-            Sets.newHashSet(operator), operator);
-    rolePermissionService
-        .assignRoleToUsers(
-            RoleUtils.buildNamespaceRoleName(appId, namespaceName, RoleType.RELEASE_NAMESPACE),
-            Sets.newHashSet(operator), operator);
-  }
+		rolePermissionService.assignRoleToUsers(
+				RoleUtils.buildNamespaceRoleName(appId, namespaceName, RoleType.MODIFY_NAMESPACE),
+				Sets.newHashSet(operator), operator);
+		rolePermissionService.assignRoleToUsers(
+				RoleUtils.buildNamespaceRoleName(appId, namespaceName, RoleType.RELEASE_NAMESPACE),
+				Sets.newHashSet(operator), operator);
+	}
 }

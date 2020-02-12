@@ -46,260 +46,290 @@ import java.util.stream.Collectors;
 import static com.ctrip.framework.apollo.common.utils.RequestPrecondition.checkModel;
 
 @RestController
-public class NamespaceController {
+public class NamespaceController
+{
 
-  private static final Logger logger = LoggerFactory.getLogger(NamespaceController.class);
+	private static final Logger logger = LoggerFactory.getLogger(NamespaceController.class);
 
-  private final ApplicationEventPublisher publisher;
-  private final UserInfoHolder userInfoHolder;
-  private final NamespaceService namespaceService;
-  private final AppNamespaceService appNamespaceService;
-  private final RoleInitializationService roleInitializationService;
-  private final PortalConfig portalConfig;
-  private final PermissionValidator permissionValidator;
-  private final AdminServiceAPI.NamespaceAPI namespaceAPI;
+	private final ApplicationEventPublisher publisher;
+	private final UserInfoHolder userInfoHolder;
+	private final NamespaceService namespaceService;
+	private final AppNamespaceService appNamespaceService;
+	private final RoleInitializationService roleInitializationService;
+	private final PortalConfig portalConfig;
+	private final PermissionValidator permissionValidator;
+	private final AdminServiceAPI.NamespaceAPI namespaceAPI;
 
-  public NamespaceController(
-      final ApplicationEventPublisher publisher,
-      final UserInfoHolder userInfoHolder,
-      final NamespaceService namespaceService,
-      final AppNamespaceService appNamespaceService,
-      final RoleInitializationService roleInitializationService,
-      final PortalConfig portalConfig,
-      final PermissionValidator permissionValidator,
-      final AdminServiceAPI.NamespaceAPI namespaceAPI) {
-    this.publisher = publisher;
-    this.userInfoHolder = userInfoHolder;
-    this.namespaceService = namespaceService;
-    this.appNamespaceService = appNamespaceService;
-    this.roleInitializationService = roleInitializationService;
-    this.portalConfig = portalConfig;
-    this.permissionValidator = permissionValidator;
-    this.namespaceAPI = namespaceAPI;
-  }
+	public NamespaceController(final ApplicationEventPublisher publisher, final UserInfoHolder userInfoHolder,
+			final NamespaceService namespaceService, final AppNamespaceService appNamespaceService,
+			final RoleInitializationService roleInitializationService, final PortalConfig portalConfig,
+			final PermissionValidator permissionValidator, final AdminServiceAPI.NamespaceAPI namespaceAPI)
+	{
+		this.publisher = publisher;
+		this.userInfoHolder = userInfoHolder;
+		this.namespaceService = namespaceService;
+		this.appNamespaceService = appNamespaceService;
+		this.roleInitializationService = roleInitializationService;
+		this.portalConfig = portalConfig;
+		this.permissionValidator = permissionValidator;
+		this.namespaceAPI = namespaceAPI;
+	}
 
+	@GetMapping("/appnamespaces/public")
+	public List<AppNamespace> findPublicAppNamespaces()
+	{
+		return appNamespaceService.findPublicAppNamespaces();
+	}
 
-  @GetMapping("/appnamespaces/public")
-  public List<AppNamespace> findPublicAppNamespaces() {
-    return appNamespaceService.findPublicAppNamespaces();
-  }
+	@GetMapping("/apps/{appId}/envs/{env}/clusters/{clusterName}/namespaces")
+	public List<NamespaceBO> findNamespaces(@PathVariable String appId, @PathVariable String env,
+			@PathVariable String clusterName)
+	{
 
-  @GetMapping("/apps/{appId}/envs/{env}/clusters/{clusterName}/namespaces")
-  public List<NamespaceBO> findNamespaces(@PathVariable String appId, @PathVariable String env,
-                                          @PathVariable String clusterName) {
+		List<NamespaceBO> namespaceBOs = namespaceService.findNamespaceBOs(appId, Env.valueOf(env), clusterName);
 
-    List<NamespaceBO> namespaceBOs = namespaceService.findNamespaceBOs(appId, Env.valueOf(env), clusterName);
+		for (NamespaceBO namespaceBO : namespaceBOs)
+		{
+			if (permissionValidator.shouldHideConfigToCurrentUser(appId, env,
+					namespaceBO.getBaseInfo().getNamespaceName()))
+			{
+				namespaceBO.hideItems();
+			}
+		}
 
-    for (NamespaceBO namespaceBO : namespaceBOs) {
-      if (permissionValidator.shouldHideConfigToCurrentUser(appId, env, namespaceBO.getBaseInfo().getNamespaceName())) {
-        namespaceBO.hideItems();
-      }
-    }
+		return namespaceBOs;
+	}
 
-    return namespaceBOs;
-  }
+	@GetMapping("/apps/{appId}/envs/{env}/clusters/{clusterName}/namespaces/{namespaceName:.+}")
+	public NamespaceBO findNamespace(@PathVariable String appId, @PathVariable String env,
+			@PathVariable String clusterName, @PathVariable String namespaceName)
+	{
 
-  @GetMapping("/apps/{appId}/envs/{env}/clusters/{clusterName}/namespaces/{namespaceName:.+}")
-  public NamespaceBO findNamespace(@PathVariable String appId, @PathVariable String env,
-                                   @PathVariable String clusterName, @PathVariable String namespaceName) {
+		NamespaceBO namespaceBO = namespaceService.loadNamespaceBO(appId, Env.valueOf(env), clusterName, namespaceName);
 
-    NamespaceBO namespaceBO = namespaceService.loadNamespaceBO(appId, Env.valueOf(env), clusterName, namespaceName);
+		if (namespaceBO != null && permissionValidator.shouldHideConfigToCurrentUser(appId, env, namespaceName))
+		{
+			namespaceBO.hideItems();
+		}
 
-    if (namespaceBO != null && permissionValidator.shouldHideConfigToCurrentUser(appId, env, namespaceName)) {
-      namespaceBO.hideItems();
-    }
+		return namespaceBO;
+	}
 
-    return namespaceBO;
-  }
+	@GetMapping("/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/associated-public-namespace")
+	public NamespaceBO findPublicNamespaceForAssociatedNamespace(@PathVariable String env, @PathVariable String appId,
+			@PathVariable String namespaceName, @PathVariable String clusterName)
+	{
 
-  @GetMapping("/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/associated-public-namespace")
-  public NamespaceBO findPublicNamespaceForAssociatedNamespace(@PathVariable String env,
-                                                               @PathVariable String appId,
-                                                               @PathVariable String namespaceName,
-                                                               @PathVariable String clusterName) {
+		return namespaceService.findPublicNamespaceForAssociatedNamespace(Env.valueOf(env), appId, clusterName,
+				namespaceName);
+	}
 
-    return namespaceService.findPublicNamespaceForAssociatedNamespace(Env.valueOf(env), appId, clusterName, namespaceName);
-  }
+	@PreAuthorize(value = "@permissionValidator.hasCreateNamespacePermission(#appId)")
+	@PostMapping("/apps/{appId}/namespaces")
+	public ResponseEntity<Void> createNamespace(@PathVariable String appId,
+			@RequestBody List<NamespaceCreationModel> models)
+	{
+	    // 校验 `models` 非空
+		checkModel(!CollectionUtils.isEmpty(models));
 
-  @PreAuthorize(value = "@permissionValidator.hasCreateNamespacePermission(#appId)")
-  @PostMapping("/apps/{appId}/namespaces")
-  public ResponseEntity<Void> createNamespace(@PathVariable String appId,
-                                              @RequestBody List<NamespaceCreationModel> models) {
+		// 初始化 Namespace 的 Role 们
+		String namespaceName = models.get(0).getNamespace().getNamespaceName();
+		String operator = userInfoHolder.getUser().getUserId();
+		roleInitializationService.initNamespaceRoles(appId, namespaceName, operator);
+		roleInitializationService.initNamespaceEnvRoles(appId, namespaceName, operator);
 
-    checkModel(!CollectionUtils.isEmpty(models));
+		// 循环 `models` ，创建 Namespace 对象
+		for (NamespaceCreationModel model : models)
+		{
+			NamespaceDTO namespace = model.getNamespace();
+			// 校验相关参数非空
+			RequestPrecondition.checkArgumentsNotEmpty(model.getEnv(), namespace.getAppId(), namespace.getClusterName(),
+					namespace.getNamespaceName());
+			try
+			{
+                // 创建 Namespace 对象
+				namespaceService.createNamespace(Env.valueOf(model.getEnv()), namespace);
+			}
+			catch (Exception e)
+			{
+				logger.error("create namespace fail.", e);
+				Tracer.logError(String.format("create namespace fail. (env=%s namespace=%s)", model.getEnv(),
+						namespace.getNamespaceName()), e);
+			}
+		}
+		// 授予 Namespace Role 给当前管理员
+		namespaceService.assignNamespaceRoleToOperator(appId, namespaceName, userInfoHolder.getUser().getUserId());
 
-    String namespaceName = models.get(0).getNamespace().getNamespaceName();
-    String operator = userInfoHolder.getUser().getUserId();
+		return ResponseEntity.ok().build();
+	}
 
-    roleInitializationService.initNamespaceRoles(appId, namespaceName, operator);
-    roleInitializationService.initNamespaceEnvRoles(appId, namespaceName, operator);
+	@PreAuthorize(value = "@permissionValidator.hasDeleteNamespacePermission(#appId)")
+	@DeleteMapping("/apps/{appId}/envs/{env}/clusters/{clusterName}/namespaces/{namespaceName:.+}")
+	public ResponseEntity<Void> deleteNamespace(@PathVariable String appId, @PathVariable String env,
+			@PathVariable String clusterName, @PathVariable String namespaceName)
+	{
 
-    for (NamespaceCreationModel model : models) {
-      NamespaceDTO namespace = model.getNamespace();
-      RequestPrecondition.checkArgumentsNotEmpty(model.getEnv(), namespace.getAppId(),
-                                                 namespace.getClusterName(), namespace.getNamespaceName());
+		namespaceService.deleteNamespace(appId, Env.valueOf(env), clusterName, namespaceName);
 
-      try {
-        namespaceService.createNamespace(Env.valueOf(model.getEnv()), namespace);
-      } catch (Exception e) {
-        logger.error("create namespace fail.", e);
-        Tracer.logError(
-                String.format("create namespace fail. (env=%s namespace=%s)", model.getEnv(),
-                        namespace.getNamespaceName()), e);
-      }
-    }
+		return ResponseEntity.ok().build();
+	}
 
-    namespaceService.assignNamespaceRoleToOperator(appId, namespaceName,userInfoHolder.getUser().getUserId());
+	@PreAuthorize(value = "@permissionValidator.isSuperAdmin()")
+	@DeleteMapping("/apps/{appId}/appnamespaces/{namespaceName:.+}")
+	public ResponseEntity<Void> deleteAppNamespace(@PathVariable String appId, @PathVariable String namespaceName)
+	{
 
-    return ResponseEntity.ok().build();
-  }
+		AppNamespace appNamespace = appNamespaceService.deleteAppNamespace(appId, namespaceName);
 
-  @PreAuthorize(value = "@permissionValidator.hasDeleteNamespacePermission(#appId)")
-  @DeleteMapping("/apps/{appId}/envs/{env}/clusters/{clusterName}/namespaces/{namespaceName:.+}")
-  public ResponseEntity<Void> deleteNamespace(@PathVariable String appId, @PathVariable String env,
-                                              @PathVariable String clusterName, @PathVariable String namespaceName) {
+		publisher.publishEvent(new AppNamespaceDeletionEvent(appNamespace));
 
-    namespaceService.deleteNamespace(appId, Env.valueOf(env), clusterName, namespaceName);
+		return ResponseEntity.ok().build();
+	}
 
-    return ResponseEntity.ok().build();
-  }
+	@GetMapping("/apps/{appId}/appnamespaces/{namespaceName:.+}")
+	public AppNamespaceDTO findAppNamespace(@PathVariable String appId, @PathVariable String namespaceName)
+	{
+		AppNamespace appNamespace = appNamespaceService.findByAppIdAndName(appId, namespaceName);
 
-  @PreAuthorize(value = "@permissionValidator.isSuperAdmin()")
-  @DeleteMapping("/apps/{appId}/appnamespaces/{namespaceName:.+}")
-  public ResponseEntity<Void> deleteAppNamespace(@PathVariable String appId, @PathVariable String namespaceName) {
+		if (appNamespace == null)
+		{
+			throw new BadRequestException(
+					String.format("AppNamespace not exists. AppId = %s, NamespaceName = %s", appId, namespaceName));
+		}
 
-    AppNamespace appNamespace = appNamespaceService.deleteAppNamespace(appId, namespaceName);
+		return BeanUtils.transform(AppNamespaceDTO.class, appNamespace);
+	}
 
-    publisher.publishEvent(new AppNamespaceDeletionEvent(appNamespace));
+	/**
+	 * portal 创建appnamespace
+	 * @param appId
+	 * @param appendNamespacePrefix
+	 * @param appNamespace
+	 * @return
+	 */
+	@PreAuthorize(value = "@permissionValidator.hasCreateAppNamespacePermission(#appId, #appNamespace)") //校验是否有创建 AppNamespace 的权限
+	@PostMapping("/apps/{appId}/appnamespaces")
+	public AppNamespace createAppNamespace(@PathVariable String appId,
+			@RequestParam(defaultValue = "true") boolean appendNamespacePrefix,
+			@Valid @RequestBody AppNamespace appNamespace)
+	{
+		/**
+		 *  校验 AppNamespace 的 `name` 格式正确
+		 */
+		if (!InputValidator.isValidAppNamespace(appNamespace.getName()))
+		{
+			throw new BadRequestException(
+					String.format("Invalid Namespace format: %s", InputValidator.INVALID_CLUSTER_NAMESPACE_MESSAGE
+							+ " & " + InputValidator.INVALID_NAMESPACE_NAMESPACE_MESSAGE));
+		}
+		// 保存 AppNamespace 对象到数据库
+		AppNamespace createdAppNamespace = appNamespaceService.createAppNamespaceInLocal(appNamespace,
+				appendNamespacePrefix);
 
-    return ResponseEntity.ok().build();
-  }
+		/**
+		 * 赋予权限，若满足如下任一条件
+		 * 1. 公开类型的 AppNamespace
+		 * 2. 私有类型的 AppNamespace ，并且允许 App 管理员创建私有类型的 AppNamespace
+		 */
+		if (portalConfig.canAppAdminCreatePrivateNamespace() || createdAppNamespace.isPublic())
+		{
+			// 赋予修改、发布的角色
+			namespaceService.assignNamespaceRoleToOperator(appId, appNamespace.getName(),
+					userInfoHolder.getUser().getUserId());
+		}
 
-  @GetMapping("/apps/{appId}/appnamespaces/{namespaceName:.+}")
-  public AppNamespaceDTO findAppNamespace(@PathVariable String appId, @PathVariable String namespaceName) {
-    AppNamespace appNamespace = appNamespaceService.findByAppIdAndName(appId, namespaceName);
+		// 发布 AppNamespaceCreationEvent 创建事件
+		publisher.publishEvent(new AppNamespaceCreationEvent(createdAppNamespace));
 
-    if (appNamespace == null) {
-      throw new BadRequestException(
-          String.format("AppNamespace not exists. AppId = %s, NamespaceName = %s", appId, namespaceName));
-    }
+		// 返回创建的 AppNamespace 对象
+		return createdAppNamespace;
+	}
 
-    return BeanUtils.transform(AppNamespaceDTO.class, appNamespace);
-  }
+	/**
+	 * env -> cluster -> cluster has not published namespace?
+	 * Example:
+	 * dev ->
+	 *  default -> true   (default cluster has not published namespace)
+	 *  customCluster -> false (customCluster cluster's all namespaces had published)
+	 */
+	@GetMapping("/apps/{appId}/namespaces/publish_info")
+	public Map<String, Map<String, Boolean>> getNamespacesPublishInfo(@PathVariable String appId)
+	{
+		return namespaceService.getNamespacesPublishInfo(appId);
+	}
 
-  /**
-   * portal 创建appnamespace
-   * @param appId
-   * @param appendNamespacePrefix
-   * @param appNamespace
-   * @return
-   */
-  @PreAuthorize(value = "@permissionValidator.hasCreateAppNamespacePermission(#appId, #appNamespace)")//校验是否有创建 AppNamespace 的权限
-  @PostMapping("/apps/{appId}/appnamespaces")
-  public AppNamespace createAppNamespace(@PathVariable String appId,
-      @RequestParam(defaultValue = "true") boolean appendNamespacePrefix,
-      @Valid @RequestBody AppNamespace appNamespace) {
-    /**
-     *  校验 AppNamespace 的 `name` 格式正确
-     */
-    if (!InputValidator.isValidAppNamespace(appNamespace.getName())) {
-      throw new BadRequestException(String.format("Invalid Namespace format: %s",
-          InputValidator.INVALID_CLUSTER_NAMESPACE_MESSAGE + " & " + InputValidator.INVALID_NAMESPACE_NAMESPACE_MESSAGE));
-    }
-    // 保存 AppNamespace 对象到数据库
-    AppNamespace createdAppNamespace = appNamespaceService.createAppNamespaceInLocal(appNamespace, appendNamespacePrefix);
+	@GetMapping("/envs/{env}/appnamespaces/{publicNamespaceName}/namespaces")
+	public List<NamespaceDTO> getPublicAppNamespaceAllNamespaces(@PathVariable String env,
+			@PathVariable String publicNamespaceName, @RequestParam(name = "page", defaultValue = "0") int page,
+			@RequestParam(name = "size", defaultValue = "10") int size)
+	{
 
-    /**
-     * 赋予权限，若满足如下任一条件
-     * 1. 公开类型的 AppNamespace
-     * 2. 私有类型的 AppNamespace ，并且允许 App 管理员创建私有类型的 AppNamespace
-     */
-    if (portalConfig.canAppAdminCreatePrivateNamespace() || createdAppNamespace.isPublic()) {
-      // 赋予修改、发布的角色
-      namespaceService.assignNamespaceRoleToOperator(appId, appNamespace.getName(),
-          userInfoHolder.getUser().getUserId());
-    }
+		return namespaceService.getPublicAppNamespaceAllNamespaces(Env.fromString(env), publicNamespaceName, page,
+				size);
 
-    // 发布 AppNamespaceCreationEvent 创建事件
-    publisher.publishEvent(new AppNamespaceCreationEvent(createdAppNamespace));
+	}
 
-    // 返回创建的 AppNamespace 对象
-    return createdAppNamespace;
-  }
+	@GetMapping("/apps/{appId}/envs/{env}/clusters/{clusterName}/missing-namespaces")
+	public MultiResponseEntity<String> findMissingNamespaces(@PathVariable String appId, @PathVariable String env,
+			@PathVariable String clusterName)
+	{
 
-  /**
-   * env -> cluster -> cluster has not published namespace?
-   * Example:
-   * dev ->
-   *  default -> true   (default cluster has not published namespace)
-   *  customCluster -> false (customCluster cluster's all namespaces had published)
-   */
-  @GetMapping("/apps/{appId}/namespaces/publish_info")
-  public Map<String, Map<String, Boolean>> getNamespacesPublishInfo(@PathVariable String appId) {
-    return namespaceService.getNamespacesPublishInfo(appId);
-  }
+		MultiResponseEntity<String> response = MultiResponseEntity.ok();
 
-  @GetMapping("/envs/{env}/appnamespaces/{publicNamespaceName}/namespaces")
-  public List<NamespaceDTO> getPublicAppNamespaceAllNamespaces(@PathVariable String env,
-                                                               @PathVariable String publicNamespaceName,
-                                                               @RequestParam(name = "page", defaultValue = "0") int page,
-                                                               @RequestParam(name = "size", defaultValue = "10") int size) {
+		Set<String> missingNamespaces = findMissingNamespaceNames(appId, env, clusterName);
 
-    return namespaceService.getPublicAppNamespaceAllNamespaces(Env.fromString(env), publicNamespaceName, page, size);
+		for (String missingNamespace : missingNamespaces)
+		{
+			response.addResponseEntity(RichResponseEntity.ok(missingNamespace));
+		}
 
-  }
+		return response;
+	}
 
-  @GetMapping("/apps/{appId}/envs/{env}/clusters/{clusterName}/missing-namespaces")
-  public MultiResponseEntity<String> findMissingNamespaces(@PathVariable String appId, @PathVariable String env, @PathVariable String clusterName) {
+	@PostMapping("/apps/{appId}/envs/{env}/clusters/{clusterName}/missing-namespaces")
+	public ResponseEntity<Void> createMissingNamespaces(@PathVariable String appId, @PathVariable String env,
+			@PathVariable String clusterName)
+	{
 
-    MultiResponseEntity<String> response = MultiResponseEntity.ok();
+		Set<String> missingNamespaces = findMissingNamespaceNames(appId, env, clusterName);
 
-    Set<String> missingNamespaces = findMissingNamespaceNames(appId, env, clusterName);
+		for (String missingNamespace : missingNamespaces)
+		{
+			namespaceAPI.createMissingAppNamespace(Env.fromString(env), findAppNamespace(appId, missingNamespace));
+		}
 
-    for (String missingNamespace : missingNamespaces) {
-      response.addResponseEntity(RichResponseEntity.ok(missingNamespace));
-    }
+		return ResponseEntity.ok().build();
+	}
 
-    return response;
-  }
+	private Set<String> findMissingNamespaceNames(String appId, String env, String clusterName)
+	{
+		List<AppNamespaceDTO> configDbAppNamespaces = namespaceAPI.getAppNamespaces(appId, Env.fromString(env));
+		List<NamespaceDTO> configDbNamespaces = namespaceService.findNamespaces(appId, Env.fromString(env),
+				clusterName);
+		List<AppNamespace> portalDbAppNamespaces = appNamespaceService.findByAppId(appId);
 
-  @PostMapping("/apps/{appId}/envs/{env}/clusters/{clusterName}/missing-namespaces")
-  public ResponseEntity<Void> createMissingNamespaces(@PathVariable String appId, @PathVariable String env, @PathVariable String clusterName) {
+		Set<String> configDbAppNamespaceNames = configDbAppNamespaces.stream().map(AppNamespaceDTO::getName)
+				.collect(Collectors.toSet());
+		Set<String> configDbNamespaceNames = configDbNamespaces.stream().map(NamespaceDTO::getNamespaceName)
+				.collect(Collectors.toSet());
 
-    Set<String> missingNamespaces = findMissingNamespaceNames(appId, env, clusterName);
+		Set<String> portalDbAllAppNamespaceNames = Sets.newHashSet();
+		Set<String> portalDbPrivateAppNamespaceNames = Sets.newHashSet();
 
-    for (String missingNamespace : missingNamespaces) {
-      namespaceAPI.createMissingAppNamespace(Env.fromString(env), findAppNamespace(appId, missingNamespace));
-    }
+		for (AppNamespace appNamespace : portalDbAppNamespaces)
+		{
+			portalDbAllAppNamespaceNames.add(appNamespace.getName());
+			if (!appNamespace.isPublic())
+			{
+				portalDbPrivateAppNamespaceNames.add(appNamespace.getName());
+			}
+		}
 
-    return ResponseEntity.ok().build();
-  }
+		// AppNamespaces should be the same
+		Set<String> missingAppNamespaceNames = Sets.difference(portalDbAllAppNamespaceNames, configDbAppNamespaceNames);
+		// Private namespaces should all exist
+		Set<String> missingNamespaceNames = Sets.difference(portalDbPrivateAppNamespaceNames, configDbNamespaceNames);
 
-  private Set<String> findMissingNamespaceNames(String appId, String env, String clusterName) {
-    List<AppNamespaceDTO> configDbAppNamespaces = namespaceAPI.getAppNamespaces(appId, Env.fromString(env));
-    List<NamespaceDTO> configDbNamespaces = namespaceService.findNamespaces(appId, Env.fromString(env), clusterName);
-    List<AppNamespace> portalDbAppNamespaces = appNamespaceService.findByAppId(appId);
-
-    Set<String> configDbAppNamespaceNames = configDbAppNamespaces.stream().map(AppNamespaceDTO::getName)
-            .collect(Collectors.toSet());
-    Set<String> configDbNamespaceNames = configDbNamespaces.stream().map(NamespaceDTO::getNamespaceName)
-        .collect(Collectors.toSet());
-
-    Set<String> portalDbAllAppNamespaceNames = Sets.newHashSet();
-    Set<String> portalDbPrivateAppNamespaceNames = Sets.newHashSet();
-
-    for (AppNamespace appNamespace : portalDbAppNamespaces) {
-      portalDbAllAppNamespaceNames.add(appNamespace.getName());
-      if (!appNamespace.isPublic()) {
-        portalDbPrivateAppNamespaceNames.add(appNamespace.getName());
-      }
-    }
-
-    // AppNamespaces should be the same
-    Set<String> missingAppNamespaceNames = Sets.difference(portalDbAllAppNamespaceNames, configDbAppNamespaceNames);
-    // Private namespaces should all exist
-    Set<String> missingNamespaceNames = Sets.difference(portalDbPrivateAppNamespaceNames, configDbNamespaceNames);
-
-    return Sets.union(missingAppNamespaceNames, missingNamespaceNames);
-  }
+		return Sets.union(missingAppNamespaceNames, missingNamespaceNames);
+	}
 }

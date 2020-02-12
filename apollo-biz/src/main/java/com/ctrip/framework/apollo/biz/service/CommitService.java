@@ -20,6 +20,7 @@ public class CommitService {
   @Transactional
   public Commit save(Commit commit){
     commit.setId(0);//protection
+    // 保存 Commit
     return commitRepository.save(commit);
   }
 

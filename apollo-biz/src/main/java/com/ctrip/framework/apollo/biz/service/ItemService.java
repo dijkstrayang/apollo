@@ -128,19 +128,25 @@ public class ItemService {
 
   @Transactional
   public Item save(Item entity) {
+    // 校验 Key 长度 可配置 "item.value.length.limit" 在 ServerConfig 配置最大长度
     checkItemKeyLength(entity.getKey());
+    // 校验 Value 长度
     checkItemValueLength(entity.getNamespaceId(), entity.getValue());
 
     entity.setId(0);//protection
 
+    //设置 Item 的行号，以 Namespace 下的 Item 最大行号 + 1
     if (entity.getLineNum() == 0) {
+      // 获得最大行号的 Item 对象
       Item lastItem = findLastOne(entity.getNamespaceId());
       int lineNum = lastItem == null ? 1 : lastItem.getLineNum() + 1;
       entity.setLineNum(lineNum);
     }
 
+    //保存 Item
     Item item = itemRepository.save(entity);
 
+    //记录 Audit 到数据库中
     auditService.audit(Item.class.getSimpleName(), item.getId(), Audit.OP.INSERT,
                        item.getDataChangeCreatedBy());
 
@@ -160,6 +166,14 @@ public class ItemService {
     return managedItem;
   }
 
+  /**
+   * 全局可配置 "item.value.length.limit" 在 ServerConfig 配置最大长度
+   * 自定义配置 "namespace.value.length.limit.override" 在 ServerConfig 配置最大长度
+   * 默认最大长度为 20000
+   * @param namespaceId
+   * @param value
+   * @return
+   */
   private boolean checkItemValueLength(long namespaceId, String value) {
     int limit = getItemValueLengthLimit(namespaceId);
     if (!StringUtils.isEmpty(value) && value.length() > limit) {
@@ -168,6 +182,11 @@ public class ItemService {
     return true;
   }
 
+  /**
+   * 可配置 "item.value.length.limit" 在 ServerConfig 配置最大长度 默认最大长度为 128
+   * @param key
+   * @return
+   */
   private boolean checkItemKeyLength(String key) {
     if (!StringUtils.isEmpty(key) && key.length() > bizConfig.itemKeyLengthLimit()) {
       throw new BadRequestException("key too long. length limit:" + bizConfig.itemKeyLengthLimit());

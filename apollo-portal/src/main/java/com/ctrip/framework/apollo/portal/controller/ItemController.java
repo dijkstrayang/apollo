@@ -71,17 +71,20 @@ public class ItemController {
   public ItemDTO createItem(@PathVariable String appId, @PathVariable String env,
                             @PathVariable String clusterName, @PathVariable String namespaceName,
                             @RequestBody ItemDTO item) {
+    // 校验 Item 格式正确
     checkModel(isValidItem(item));
 
-    //protect
+    //protect 防御性编程
     item.setLineNum(0);
     item.setId(0);
+    // 设置 ItemDTO 的创建和修改人为当前管理员
     String userId = userInfoHolder.getUser().getUserId();
     item.setDataChangeCreatedBy(userId);
     item.setDataChangeLastModifiedBy(userId);
     item.setDataChangeCreatedTime(null);
     item.setDataChangeLastModifiedTime(null);
 
+    //保存 Item 到 Admin Service
     return configService.createItem(appId, Env.valueOf(env), clusterName, namespaceName, item);
   }
 
@@ -90,8 +93,10 @@ public class ItemController {
   public void updateItem(@PathVariable String appId, @PathVariable String env,
                          @PathVariable String clusterName, @PathVariable String namespaceName,
                          @RequestBody ItemDTO item) {
+    // 校验 Item 格式正确
     checkModel(isValidItem(item));
 
+    //设置 ItemDTO 的创建和修改人为当前管理员
     String username = userInfoHolder.getUser().getUserId();
     item.setDataChangeLastModifiedBy(username);
 

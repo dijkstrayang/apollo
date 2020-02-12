@@ -2,26 +2,35 @@ package com.ctrip.framework.apollo.portal.entity.model;
 
 import com.ctrip.framework.apollo.common.dto.NamespaceDTO;
 
+public class NamespaceCreationModel
+{
+	/**
+	 * 环境
+	 */
+	private String env;
 
-public class NamespaceCreationModel {
+	/**
+	 * Namespace 信息
+	 */
+	private NamespaceDTO namespace;
 
-  private String env;
+	public String getEnv()
+	{
+		return env;
+	}
 
-  private NamespaceDTO namespace;
+	public void setEnv(String env)
+	{
+		this.env = env;
+	}
 
-  public String getEnv() {
-    return env;
-  }
+	public NamespaceDTO getNamespace()
+	{
+		return namespace;
+	}
 
-  public void setEnv(String env) {
-    this.env = env;
-  }
-
-  public NamespaceDTO getNamespace() {
-    return namespace;
-  }
-
-  public void setNamespace(NamespaceDTO namespace) {
-    this.namespace = namespace;
-  }
+	public void setNamespace(NamespaceDTO namespace)
+	{
+		this.namespace = namespace;
+	}
 }
