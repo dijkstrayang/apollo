@@ -15,7 +15,7 @@ import com.ctrip.framework.apollo.common.entity.BaseEntity;
  * Commit 的设计，在我们日常的管理后台，对重要数据的变更，可以作为参考
  */
 @Entity
-@Table(name = "Commit")g
+@Table(name = "Commit")
 @SQLDelete(sql = "Update Commit set isDeleted = 1 where id = ?")
 @Where(clause = "isDeleted = 0")
 public class Commit extends BaseEntity
