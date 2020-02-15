@@ -54,12 +54,15 @@ public class ReleaseHistoryService {
   public ReleaseHistory createReleaseHistory(String appId, String clusterName, String
       namespaceName, String branchName, long releaseId, long previousReleaseId, int operation,
                                              Map<String, Object> operationContext, String operator) {
+    //创建 ReleaseHistory 对象
     ReleaseHistory releaseHistory = new ReleaseHistory();
     releaseHistory.setAppId(appId);
     releaseHistory.setClusterName(clusterName);
     releaseHistory.setNamespaceName(namespaceName);
     releaseHistory.setBranchName(branchName);
+    // Release 编号
     releaseHistory.setReleaseId(releaseId);
+    // 上一个Release 编号
     releaseHistory.setPreviousReleaseId(previousReleaseId);
     releaseHistory.setOperation(operation);
     if (operationContext == null) {
@@ -71,6 +74,7 @@ public class ReleaseHistoryService {
     releaseHistory.setDataChangeCreatedBy(operator);
     releaseHistory.setDataChangeLastModifiedBy(operator);
 
+    //保存 ReleaseHistory 对象
     releaseHistoryRepository.save(releaseHistory);
 
     auditService.audit(ReleaseHistory.class.getSimpleName(), releaseHistory.getId(),

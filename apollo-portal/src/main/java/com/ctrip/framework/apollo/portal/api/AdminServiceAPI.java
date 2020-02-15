@@ -298,6 +298,18 @@ public class AdminServiceAPI
 			return releaseDTO;
 		}
 
+		/**
+		 * 发布 Namespace 的配置
+		 * @param appId
+		 * @param env
+		 * @param clusterName
+		 * @param namespace
+		 * @param releaseName
+		 * @param releaseComment
+		 * @param operator
+		 * @param isEmergencyPublish
+		 * @return
+		 */
 		public ReleaseDTO createRelease(String appId, Env env, String clusterName, String namespace, String releaseName,
 				String releaseComment, String operator, boolean isEmergencyPublish)
 		{

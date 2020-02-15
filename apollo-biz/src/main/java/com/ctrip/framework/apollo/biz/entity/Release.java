@@ -1,115 +1,157 @@
 package com.ctrip.framework.apollo.biz.entity;
 
-import com.ctrip.framework.apollo.common.entity.BaseEntity;
-
-import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.Where;
-
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Lob;
 import javax.persistence.Table;
+
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.Where;
+
+import com.ctrip.framework.apollo.common.entity.BaseEntity;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
  */
 @Entity
 @Table(name = "Release")
-@SQLDelete(sql = "Update Release set isDeleted = 1 where id = ?")
+@SQLDelete(sql = "Update Release set isDeleted = 1 where id = ?")// 标记删除
 @Where(clause = "isDeleted = 0")
-public class Release extends BaseEntity {
-  @Column(name = "ReleaseKey", nullable = false)
-  private String releaseKey;
+public class Release extends BaseEntity
+{
+	/**
+	 * Release Key
+	 */
+	@Column(name = "ReleaseKey", nullable = false)
+	private String releaseKey;
 
-  @Column(name = "Name", nullable = false)
-  private String name;
+	/**
+	 * 发布标题
+	 */
+	@Column(name = "Name", nullable = false)
+	private String name;
 
-  @Column(name = "AppId", nullable = false)
-  private String appId;
+	/**
+	 * app 编号
+	 */
+	@Column(name = "AppId", nullable = false)
+	private String appId;
 
-  @Column(name = "ClusterName", nullable = false)
-  private String clusterName;
+	/**
+	 * 集群名称
+	 */
+	@Column(name = "ClusterName", nullable = false)
+	private String clusterName;
 
-  @Column(name = "NamespaceName", nullable = false)
-  private String namespaceName;
+	/**
+	 * ns 名称
+	 */
+	@Column(name = "NamespaceName", nullable = false)
+	private String namespaceName;
 
-  @Column(name = "Configurations", nullable = false)
-  @Lob
-  private String configurations;
+	/**
+	 * 配置 Map 字符串，使用 JSON 格式化成字符串
+	 */
+	@Column(name = "Configurations", nullable = false)
+	@Lob
+	private String configurations;
 
-  @Column(name = "Comment", nullable = false)
-  private String comment;
+	/**
+	 * 备注
+	 */
+	@Column(name = "Comment", nullable = false)
+	private String comment;
 
-  @Column(name = "IsAbandoned", columnDefinition = "Bit default '0'")
-  private boolean isAbandoned;
+	/**
+	 * 是否被回滚（放弃）
+	 */
+	@Column(name = "IsAbandoned", columnDefinition = "Bit default '0'")
+	private boolean isAbandoned;
 
-  public String getReleaseKey() {
-    return releaseKey;
-  }
+	public String getReleaseKey()
+	{
+		return releaseKey;
+	}
 
-  public String getAppId() {
-    return appId;
-  }
+	public String getAppId()
+	{
+		return appId;
+	}
 
-  public String getClusterName() {
-    return clusterName;
-  }
+	public String getClusterName()
+	{
+		return clusterName;
+	}
 
-  public String getComment() {
-    return comment;
-  }
+	public String getComment()
+	{
+		return comment;
+	}
 
-  public String getConfigurations() {
-    return configurations;
-  }
+	public String getConfigurations()
+	{
+		return configurations;
+	}
 
-  public String getNamespaceName() {
-    return namespaceName;
-  }
+	public String getNamespaceName()
+	{
+		return namespaceName;
+	}
 
-  public String getName() {
-    return name;
-  }
+	public String getName()
+	{
+		return name;
+	}
 
-  public void setReleaseKey(String releaseKey) {
-    this.releaseKey = releaseKey;
-  }
+	public void setReleaseKey(String releaseKey)
+	{
+		this.releaseKey = releaseKey;
+	}
 
-  public void setAppId(String appId) {
-    this.appId = appId;
-  }
+	public void setAppId(String appId)
+	{
+		this.appId = appId;
+	}
 
-  public void setClusterName(String clusterName) {
-    this.clusterName = clusterName;
-  }
+	public void setClusterName(String clusterName)
+	{
+		this.clusterName = clusterName;
+	}
 
-  public void setComment(String comment) {
-    this.comment = comment;
-  }
+	public void setComment(String comment)
+	{
+		this.comment = comment;
+	}
 
-  public void setConfigurations(String configurations) {
-    this.configurations = configurations;
-  }
+	public void setConfigurations(String configurations)
+	{
+		this.configurations = configurations;
+	}
 
-  public void setNamespaceName(String namespaceName) {
-    this.namespaceName = namespaceName;
-  }
+	public void setNamespaceName(String namespaceName)
+	{
+		this.namespaceName = namespaceName;
+	}
 
-  public void setName(String name) {
-    this.name = name;
-  }
+	public void setName(String name)
+	{
+		this.name = name;
+	}
 
-  public boolean isAbandoned() {
-    return isAbandoned;
-  }
+	public boolean isAbandoned()
+	{
+		return isAbandoned;
+	}
 
-  public void setAbandoned(boolean abandoned) {
-    isAbandoned = abandoned;
-  }
+	public void setAbandoned(boolean abandoned)
+	{
+		isAbandoned = abandoned;
+	}
 
-  public String toString() {
-    return toStringHelper().add("name", name).add("appId", appId).add("clusterName", clusterName)
-        .add("namespaceName", namespaceName).add("configurations", configurations)
-        .add("comment", comment).add("isAbandoned", isAbandoned).toString();
-  }
+	public String toString()
+	{
+		return toStringHelper().add("name", name).add("appId", appId).add("clusterName", clusterName)
+				.add("namespaceName", namespaceName).add("configurations", configurations).add("comment", comment)
+				.add("isAbandoned", isAbandoned).toString();
+	}
 }

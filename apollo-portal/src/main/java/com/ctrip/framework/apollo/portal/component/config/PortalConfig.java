@@ -1,6 +1,5 @@
 package com.ctrip.framework.apollo.portal.component.config;
 
-
 import com.ctrip.framework.apollo.common.config.RefreshableConfig;
 import com.ctrip.framework.apollo.common.config.RefreshablePropertySource;
 import com.ctrip.framework.apollo.core.enums.Env;
@@ -21,230 +20,285 @@ import java.util.Objects;
 import java.util.Set;
 
 @Component
-public class PortalConfig extends RefreshableConfig {
+public class PortalConfig extends RefreshableConfig
+{
 
-  private Gson gson = new Gson();
-  private static final Type ORGANIZATION = new TypeToken<List<Organization>>() {
-  }.getType();
+	private Gson gson = new Gson();
+	private static final Type ORGANIZATION = new TypeToken<List<Organization>>() {
+	}.getType();
 
-  private final PortalDBPropertySource portalDBPropertySource;
+	private final PortalDBPropertySource portalDBPropertySource;
 
-  public PortalConfig(final PortalDBPropertySource portalDBPropertySource) {
-    this.portalDBPropertySource = portalDBPropertySource;
-  }
+	public PortalConfig(final PortalDBPropertySource portalDBPropertySource)
+	{
+		this.portalDBPropertySource = portalDBPropertySource;
+	}
 
-  @Override
-  public List<RefreshablePropertySource> getRefreshablePropertySources() {
-    return Collections.singletonList(portalDBPropertySource);
-  }
+	@Override
+	public List<RefreshablePropertySource> getRefreshablePropertySources()
+	{
+		return Collections.singletonList(portalDBPropertySource);
+	}
 
-  /***
-   * Level: important
-   **/
-  public List<Env> portalSupportedEnvs() {
-    String[] configurations = getArrayProperty("apollo.portal.envs", new String[]{"FAT", "UAT", "PRO"});
-    List<Env> envs = Lists.newLinkedList();
+	/***
+	 * Level: important
+	 **/
+	public List<Env> portalSupportedEnvs()
+	{
+		String[] configurations = getArrayProperty("apollo.portal.envs", new String[]
+		{ "FAT", "UAT", "PRO" });
+		List<Env> envs = Lists.newLinkedList();
 
-    for (String env : configurations) {
-      envs.add(Env.fromString(env));
-    }
+		for (String env : configurations)
+		{
+			envs.add(Env.fromString(env));
+		}
 
-    return envs;
-  }
+		return envs;
+	}
 
-  public List<String> superAdmins() {
-    String superAdminConfig = getValue("superAdmin", "");
-    if (Strings.isNullOrEmpty(superAdminConfig)) {
-      return Collections.emptyList();
-    }
-    return splitter.splitToList(superAdminConfig);
-  }
+	public List<String> superAdmins()
+	{
+		String superAdminConfig = getValue("superAdmin", "");
+		if (Strings.isNullOrEmpty(superAdminConfig))
+		{
+			return Collections.emptyList();
+		}
+		return splitter.splitToList(superAdminConfig);
+	}
 
-  public Set<Env> emailSupportedEnvs() {
-    String[] configurations = getArrayProperty("email.supported.envs", null);
+	public Set<Env> emailSupportedEnvs()
+	{
+		String[] configurations = getArrayProperty("email.supported.envs", null);
 
-    Set<Env> result = Sets.newHashSet();
-    if (configurations == null || configurations.length == 0) {
-      return result;
-    }
+		Set<Env> result = Sets.newHashSet();
+		if (configurations == null || configurations.length == 0)
+		{
+			return result;
+		}
 
-    for (String env : configurations) {
-      result.add(Env.fromString(env));
-    }
+		for (String env : configurations)
+		{
+			result.add(Env.fromString(env));
+		}
 
-    return result;
-  }
+		return result;
+	}
 
-  public boolean isConfigViewMemberOnly(String env) {
-    String[] configViewMemberOnlyEnvs = getArrayProperty("configView.memberOnly.envs", new String[0]);
+	public boolean isConfigViewMemberOnly(String env)
+	{
+		String[] configViewMemberOnlyEnvs = getArrayProperty("configView.memberOnly.envs", new String[0]);
 
-    for (String memberOnlyEnv : configViewMemberOnlyEnvs) {
-      if (memberOnlyEnv.equalsIgnoreCase(env)) {
-        return true;
-      }
-    }
+		for (String memberOnlyEnv : configViewMemberOnlyEnvs)
+		{
+			if (memberOnlyEnv.equalsIgnoreCase(env))
+			{
+				return true;
+			}
+		}
 
-    return false;
-  }
+		return false;
+	}
 
-  /***
-   * Level: normal
-   **/
-  public int connectTimeout() {
-    return getIntProperty("api.connectTimeout", 3000);
-  }
+	/***
+	 * Level: normal
+	 **/
+	public int connectTimeout()
+	{
+		return getIntProperty("api.connectTimeout", 3000);
+	}
 
-  public int readTimeout() {
-    return getIntProperty("api.readTimeout", 10000);
-  }
+	public int readTimeout()
+	{
+		return getIntProperty("api.readTimeout", 10000);
+	}
 
-  public List<Organization> organizations() {
+	public List<Organization> organizations()
+	{
 
-    String organizations = getValue("organizations");
-    return organizations == null ? Collections.emptyList() : gson.fromJson(organizations, ORGANIZATION);
-  }
+		String organizations = getValue("organizations");
+		return organizations == null ? Collections.emptyList() : gson.fromJson(organizations, ORGANIZATION);
+	}
 
-  public String portalAddress() {
-    return getValue("apollo.portal.address");
-  }
+	public String portalAddress()
+	{
+		return getValue("apollo.portal.address");
+	}
 
-  public boolean isEmergencyPublishAllowed(Env env) {
-    String targetEnv = env.name();
+	/**
+	 * 紧急发布功能，可通过设置 PortalDB 的 ServerConfig 的"emergencyPublish.supported.envs" 配置开启对应的 Env 们。
+	 * 例如，emergencyPublish.supported.envs = dev
+	 * @param env
+	 * @return
+	 */
+	public boolean isEmergencyPublishAllowed(Env env)
+	{
+		String targetEnv = env.name();
 
-    String[] emergencyPublishSupportedEnvs = getArrayProperty("emergencyPublish.supported.envs", new String[0]);
+		String[] emergencyPublishSupportedEnvs = getArrayProperty("emergencyPublish.supported.envs", new String[0]);
 
-    for (String supportedEnv : emergencyPublishSupportedEnvs) {
-      if (Objects.equals(targetEnv, supportedEnv.toUpperCase().trim())) {
-        return true;
-      }
-    }
+		for (String supportedEnv : emergencyPublishSupportedEnvs)
+		{
+			if (Objects.equals(targetEnv, supportedEnv.toUpperCase().trim()))
+			{
+				return true;
+			}
+		}
 
-    return false;
-  }
+		return false;
+	}
 
-  /***
-   * Level: low
-   **/
-  public Set<Env> publishTipsSupportedEnvs() {
-    String[] configurations = getArrayProperty("namespace.publish.tips.supported.envs", null);
+	/***
+	 * Level: low
+	 **/
+	public Set<Env> publishTipsSupportedEnvs()
+	{
+		String[] configurations = getArrayProperty("namespace.publish.tips.supported.envs", null);
 
-    Set<Env> result = Sets.newHashSet();
-    if (configurations == null || configurations.length == 0) {
-      return result;
-    }
+		Set<Env> result = Sets.newHashSet();
+		if (configurations == null || configurations.length == 0)
+		{
+			return result;
+		}
 
-    for (String env : configurations) {
-      result.add(Env.fromString(env));
-    }
+		for (String env : configurations)
+		{
+			result.add(Env.fromString(env));
+		}
 
-    return result;
-  }
+		return result;
+	}
 
-  public String consumerTokenSalt() {
-    return getValue("consumer.token.salt", "apollo-portal");
-  }
+	public String consumerTokenSalt()
+	{
+		return getValue("consumer.token.salt", "apollo-portal");
+	}
 
-  public String emailSender() {
-    return getValue("email.sender");
-  }
+	public String emailSender()
+	{
+		return getValue("email.sender");
+	}
 
-  public String emailTemplateFramework() {
-    return getValue("email.template.framework", "");
-  }
+	public String emailTemplateFramework()
+	{
+		return getValue("email.template.framework", "");
+	}
 
-  public String emailReleaseDiffModuleTemplate() {
-    return getValue("email.template.release.module.diff", "");
-  }
+	public String emailReleaseDiffModuleTemplate()
+	{
+		return getValue("email.template.release.module.diff", "");
+	}
 
-  public String emailRollbackDiffModuleTemplate() {
-    return getValue("email.template.rollback.module.diff", "");
-  }
+	public String emailRollbackDiffModuleTemplate()
+	{
+		return getValue("email.template.rollback.module.diff", "");
+	}
 
-  public String emailGrayRulesModuleTemplate() {
-    return getValue("email.template.release.module.rules", "");
-  }
+	public String emailGrayRulesModuleTemplate()
+	{
+		return getValue("email.template.release.module.rules", "");
+	}
 
-  public String wikiAddress() {
-    return getValue("wiki.address", "https://github.com/ctripcorp/apollo/wiki");
-  }
+	public String wikiAddress()
+	{
+		return getValue("wiki.address", "https://github.com/ctripcorp/apollo/wiki");
+	}
 
-  public boolean canAppAdminCreatePrivateNamespace() {
-    // admin.createPrivateNamespace.switch 【在 ServerConfig 表】
-    return getBooleanProperty("admin.createPrivateNamespace.switch", true);
-  }
+	public boolean canAppAdminCreatePrivateNamespace()
+	{
+		// admin.createPrivateNamespace.switch 【在 ServerConfig 表】
+		return getBooleanProperty("admin.createPrivateNamespace.switch", true);
+	}
 
-  public boolean isCreateApplicationPermissionEnabled() {
-    return getBooleanProperty(SystemRoleManagerService.CREATE_APPLICATION_LIMIT_SWITCH_KEY, false);
-  }
+	public boolean isCreateApplicationPermissionEnabled()
+	{
+		return getBooleanProperty(SystemRoleManagerService.CREATE_APPLICATION_LIMIT_SWITCH_KEY, false);
+	}
 
-  public boolean isManageAppMasterPermissionEnabled() {
-    return getBooleanProperty(SystemRoleManagerService.MANAGE_APP_MASTER_LIMIT_SWITCH_KEY, false);
-  }
+	public boolean isManageAppMasterPermissionEnabled()
+	{
+		return getBooleanProperty(SystemRoleManagerService.MANAGE_APP_MASTER_LIMIT_SWITCH_KEY, false);
+	}
 
-  /***
-   * The following configurations are used in ctrip profile
-   **/
+	/***
+	 * The following configurations are used in ctrip profile
+	 **/
 
-  public int appId() {
-    return getIntProperty("ctrip.appid", 0);
-  }
+	public int appId()
+	{
+		return getIntProperty("ctrip.appid", 0);
+	}
 
-  //send code & template id. apply from ewatch
-  public String sendCode() {
-    return getValue("ctrip.email.send.code");
-  }
+	//send code & template id. apply from ewatch
+	public String sendCode()
+	{
+		return getValue("ctrip.email.send.code");
+	}
 
-  public int templateId() {
-    return getIntProperty("ctrip.email.template.id", 0);
-  }
+	public int templateId()
+	{
+		return getIntProperty("ctrip.email.template.id", 0);
+	}
 
-  //email retention time in email server queue.TimeUnit: hour
-  public int survivalDuration() {
-    return getIntProperty("ctrip.email.survival.duration", 5);
-  }
+	//email retention time in email server queue.TimeUnit: hour
+	public int survivalDuration()
+	{
+		return getIntProperty("ctrip.email.survival.duration", 5);
+	}
 
-  public boolean isSendEmailAsync() {
-    return getBooleanProperty("email.send.async", true);
-  }
+	public boolean isSendEmailAsync()
+	{
+		return getBooleanProperty("email.send.async", true);
+	}
 
-  public String portalServerName() {
-    return getValue("serverName");
-  }
+	public String portalServerName()
+	{
+		return getValue("serverName");
+	}
 
-  public String casServerLoginUrl() {
-    return getValue("casServerLoginUrl");
-  }
+	public String casServerLoginUrl()
+	{
+		return getValue("casServerLoginUrl");
+	}
 
-  public String casServerUrlPrefix() {
-    return getValue("casServerUrlPrefix");
-  }
+	public String casServerUrlPrefix()
+	{
+		return getValue("casServerUrlPrefix");
+	}
 
-  public String credisServiceUrl() {
-    return getValue("credisServiceUrl");
-  }
+	public String credisServiceUrl()
+	{
+		return getValue("credisServiceUrl");
+	}
 
-  public String userServiceUrl() {
-    return getValue("userService.url");
-  }
+	public String userServiceUrl()
+	{
+		return getValue("userService.url");
+	}
 
-  public String userServiceAccessToken() {
-    return getValue("userService.accessToken");
-  }
+	public String userServiceAccessToken()
+	{
+		return getValue("userService.accessToken");
+	}
 
-  public String soaServerAddress() {
-    return getValue("soa.server.address");
-  }
+	public String soaServerAddress()
+	{
+		return getValue("soa.server.address");
+	}
 
-  public String cloggingUrl() {
-    return getValue("clogging.server.url");
-  }
+	public String cloggingUrl()
+	{
+		return getValue("clogging.server.url");
+	}
 
-  public String cloggingPort() {
-    return getValue("clogging.server.port");
-  }
+	public String cloggingPort()
+	{
+		return getValue("clogging.server.port");
+	}
 
-  public String hermesServerAddress() {
-    return getValue("hermes.server.address");
-  }
+	public String hermesServerAddress()
+	{
+		return getValue("hermes.server.address");
+	}
 
 }

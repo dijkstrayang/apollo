@@ -251,11 +251,14 @@ public class NamespaceService
 	{
 		String appId = namespace.getAppId();
 		String namespaceName = namespace.getNamespaceName();
-
+		// 获得 Cluster
 		Cluster cluster = clusterService.findOne(appId, namespace.getClusterName());
+		//若为子 Cluster
 		if (cluster != null && cluster.getParentClusterId() > 0)
 		{
+			// 获得父 Cluster
 			Cluster parentCluster = clusterService.findOne(cluster.getParentClusterId());
+			// 获得父 Namespace
 			return findOne(appId, parentCluster.getName(), namespaceName);
 		}
 
