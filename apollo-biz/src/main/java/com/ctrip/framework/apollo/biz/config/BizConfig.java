@@ -86,6 +86,10 @@ public class BizConfig extends RefreshableConfig {
     return namespaceValueLengthOverride;
   }
 
+  /**
+   * 判断是否关闭锁定 Namespace 的开关
+   * @return
+   */
   public boolean isNamespaceLockSwitchOff() {
     return !getBooleanProperty("namespace.lock.switch", false);
   }
