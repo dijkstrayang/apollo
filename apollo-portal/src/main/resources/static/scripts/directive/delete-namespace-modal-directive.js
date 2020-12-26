@@ -4,7 +4,7 @@ function deleteNamespaceModalDirective($window, $q, $translate, toastr, AppUtil,
     PermissionService, UserService, NamespaceService) {
     return {
         restrict: 'E',
-        templateUrl: '../../views/component/delete-namespace-modal.html',
+        templateUrl: AppUtil.prefixPath() + '/views/component/delete-namespace-modal.html',
         transclude: true,
         replace: true,
         scope: {
@@ -58,7 +58,7 @@ function deleteNamespaceModalDirective($window, $q, $translate, toastr, AppUtil,
                             var masterUsers = [];
 
                             appRoleUsers.masterUsers.forEach(function (user) {
-                                masterUsers.push(user.userId);
+                                masterUsers.push(_.escape(user.userId));
 
                                 if (currentUser.userId == user.userId) {
                                     isAppMasterUser = true;
@@ -69,8 +69,8 @@ function deleteNamespaceModalDirective($window, $q, $translate, toastr, AppUtil,
                             scope.isAppMasterUser = isAppMasterUser;
 
                             if (!isAppMasterUser) {
-                                toastr.error($translate.instant('Config.DeleteNamespaceNoPermissionFailedTitle', {
-                                    usres: scope.masterUsers.join(", ")
+                                toastr.error($translate.instant('Config.DeleteNamespaceNoPermissionFailedTips', {
+                                    users: scope.masterUsers.join(", ")
                                 }), $translate.instant('Config.DeleteNamespaceNoPermissionFailedTitle'));
                                 d.reject();
                             } else {

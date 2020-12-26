@@ -14,7 +14,7 @@ import com.ctrip.framework.apollo.common.dto.ClusterDTO;
 import com.ctrip.framework.apollo.common.exception.BadRequestException;
 import com.ctrip.framework.apollo.common.utils.InputValidator;
 import com.ctrip.framework.apollo.common.utils.RequestPrecondition;
-import com.ctrip.framework.apollo.core.enums.Env;
+import com.ctrip.framework.apollo.portal.environment.Env;
 import com.ctrip.framework.apollo.core.utils.StringUtils;
 import com.ctrip.framework.apollo.openapi.dto.OpenClusterDTO;
 import com.ctrip.framework.apollo.openapi.util.OpenApiBeanUtils;
@@ -37,7 +37,7 @@ public class ClusterController {
   public OpenClusterDTO loadCluster(@PathVariable("appId") String appId, @PathVariable String env,
       @PathVariable("clusterName") String clusterName) {
 
-    ClusterDTO clusterDTO = clusterService.loadCluster(appId, Env.fromString(env), clusterName);
+    ClusterDTO clusterDTO = clusterService.loadCluster(appId, Env.valueOf(env), clusterName);
     return clusterDTO == null ? null : OpenApiBeanUtils.transformFromClusterDTO(clusterDTO);
   }
 
@@ -67,7 +67,7 @@ public class ClusterController {
     }
 
     ClusterDTO toCreate = OpenApiBeanUtils.transformToClusterDTO(cluster);
-    ClusterDTO createdClusterDTO = clusterService.createCluster(Env.fromString(env), toCreate);
+    ClusterDTO createdClusterDTO = clusterService.createCluster(Env.valueOf(env), toCreate);
 
     return OpenApiBeanUtils.transformFromClusterDTO(createdClusterDTO);
   }

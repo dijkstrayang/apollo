@@ -7,13 +7,12 @@ import com.google.common.base.Strings;
 import com.google.common.collect.Maps;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import org.springframework.stereotype.Component;
-
 import java.lang.reflect.Type;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import org.springframework.stereotype.Component;
 
 @Component
 public class BizConfig extends RefreshableConfig {
@@ -23,13 +22,16 @@ public class BizConfig extends RefreshableConfig {
   private static final int DEFAULT_APPNAMESPACE_CACHE_REBUILD_INTERVAL = 60; //60s
   private static final int DEFAULT_GRAY_RELEASE_RULE_SCAN_INTERVAL = 60; //60s
   private static final int DEFAULT_APPNAMESPACE_CACHE_SCAN_INTERVAL = 1; //1s
+  private static final int DEFAULT_ACCESSKEY_CACHE_SCAN_INTERVAL = 1; //1s
+  private static final int DEFAULT_ACCESSKEY_CACHE_REBUILD_INTERVAL = 60; //60s
   private static final int DEFAULT_RELEASE_MESSAGE_CACHE_SCAN_INTERVAL = 1; //1s
   private static final int DEFAULT_RELEASE_MESSAGE_SCAN_INTERVAL_IN_MS = 1000; //1000ms
   private static final int DEFAULT_RELEASE_MESSAGE_NOTIFICATION_BATCH = 100;
   private static final int DEFAULT_RELEASE_MESSAGE_NOTIFICATION_BATCH_INTERVAL_IN_MILLI = 100;//100ms
   private static final int DEFAULT_LONG_POLLING_TIMEOUT = 60; //60s
 
-  private Gson gson = new Gson();
+  private static final Gson GSON = new Gson();
+
   private static final Type namespaceValueLengthOverrideTypeReference =
       new TypeToken<Map<Long, Integer>>() {
       }.getType();
@@ -80,7 +82,7 @@ public class BizConfig extends RefreshableConfig {
     Map<Long, Integer> namespaceValueLengthOverride = Maps.newHashMap();
     if (!Strings.isNullOrEmpty(namespaceValueLengthOverrideString)) {
       namespaceValueLengthOverride =
-          gson.fromJson(namespaceValueLengthOverrideString, namespaceValueLengthOverrideTypeReference);
+          GSON.fromJson(namespaceValueLengthOverrideString, namespaceValueLengthOverrideTypeReference);
     }
 
     return namespaceValueLengthOverride;
@@ -119,6 +121,24 @@ public class BizConfig extends RefreshableConfig {
     return TimeUnit.SECONDS;
   }
 
+  public int accessKeyCacheScanInterval() {
+    int interval = getIntProperty("apollo.access-key-cache-scan.interval", DEFAULT_ACCESSKEY_CACHE_SCAN_INTERVAL);
+    return checkInt(interval, 1, Integer.MAX_VALUE, DEFAULT_ACCESSKEY_CACHE_SCAN_INTERVAL);
+  }
+
+  public TimeUnit accessKeyCacheScanIntervalTimeUnit() {
+    return TimeUnit.SECONDS;
+  }
+
+  public int accessKeyCacheRebuildInterval() {
+    int interval = getIntProperty("apollo.access-key-cache-rebuild.interval", DEFAULT_ACCESSKEY_CACHE_REBUILD_INTERVAL);
+    return checkInt(interval, 1, Integer.MAX_VALUE, DEFAULT_ACCESSKEY_CACHE_REBUILD_INTERVAL);
+  }
+
+  public TimeUnit accessKeyCacheRebuildIntervalTimeUnit() {
+    return TimeUnit.SECONDS;
+  }
+
   public int releaseMessageCacheScanInterval() {
     int interval = getIntProperty("apollo.release-message-cache-scan.interval", DEFAULT_RELEASE_MESSAGE_CACHE_SCAN_INTERVAL);
     return checkInt(interval, 1, Integer.MAX_VALUE, DEFAULT_RELEASE_MESSAGE_CACHE_SCAN_INTERVAL);
@@ -154,4 +174,11 @@ public class BizConfig extends RefreshableConfig {
     return defaultValue;
   }
 
+  public boolean isAdminServiceAccessControlEnabled() {
+    return getBooleanProperty("admin-service.access.control.enabled", false);
+  }
+
+  public String getAdminServiceAccessTokens() {
+    return getValue("admin-service.access.tokens");
+  }
 }
