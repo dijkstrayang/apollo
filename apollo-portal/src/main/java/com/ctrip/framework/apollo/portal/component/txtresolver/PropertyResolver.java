@@ -107,6 +107,7 @@ public class PropertyResolver implements ConfigTextResolver
 				String[] kv = parseKeyValueFromItem(item);
 				if (kv != null)
 				{
+					// key 不区分大小写
 					keys.add(kv[0].toLowerCase());
 				}
 				else

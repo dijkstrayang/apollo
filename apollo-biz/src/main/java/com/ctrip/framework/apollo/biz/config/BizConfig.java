@@ -88,6 +88,13 @@ public class BizConfig extends RefreshableConfig {
 
   /**
    * 判断是否关闭锁定 Namespace 的开关
+   * 效果如下：
+   *
+   * 一次配置修改只能是一个人
+   * 一次配置发布只能是另一个人
+   * 也就是说，开启后，一次配置修改并发布，需要两个人。
+   *
+   * 默认为 "false" ，即关闭。
    * @return
    */
   public boolean isNamespaceLockSwitchOff() {

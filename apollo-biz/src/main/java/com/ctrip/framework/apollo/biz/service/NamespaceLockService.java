@@ -5,6 +5,9 @@ import com.ctrip.framework.apollo.biz.repository.NamespaceLockRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 提供 NamespaceLock 的 Service 逻辑给 Admin Service 和 Config Service
+ */
 @Service
 public class NamespaceLockService
 {
